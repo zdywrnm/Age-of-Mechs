@@ -109,6 +109,7 @@ export class MonsterManager {
     m.hurtT = 0.15
     m.plate.redraw(Math.max(0, m.hp / m.maxHp))
     if (this.hud) this.hud.damageNumber(m.ent.pos, dmg)
+    this.onHit && this.onHit(m, dmg)
     if (fromPos && m.def.medium === 'ground') {
       const dx = m.ent.pos.x - fromPos.x, dz = m.ent.pos.z - fromPos.z
       const d = Math.hypot(dx, dz) || 1

@@ -20,6 +20,7 @@ import { AuthorNPC } from './entities/npc.js'
 import { MysteryPickupManager } from './entities/mysteryPickup.js'
 import { BoatManager } from './entities/boat.js'
 import { FluidSim } from './game/fluids.js'
+import { FX, blockColors } from './fx.js'
 import { PetManager } from './game/pets.js'
 import { QuestManager } from './game/quests.js'
 import { ChestRegistry, MYSTERY_GEARS } from './game/chests.js'
@@ -63,6 +64,7 @@ addEventListener('resize', () => {
 // ============ 维度 ============
 const ctx = { world: null, chunks: null }        // 共享上下文（各系统动态取当前维度）
 const atlas = createAtlas()
+const fx = new FX(scene)
 const dims = new DimensionManager(scene, atlas, ctx, { hemi, sun, fog: scene.fog })
 dims.register('main', {
   gen: w => { generateTerrain(w); buildStructures(w); return STRUCT.lights },
@@ -203,7 +205,13 @@ function startGame(robotConfig, save) {
     get world() { return ctx.world },
     onChestOpen: (x, y, z) => chests.open(x, y, z),
     onBedUse: () => useBed(),
-    onBlockMined: (id, x, y, z) => { quests.onMined(id); fluids.notifyRemoved(x, y, z) },
+    onBlockMined: (id, x, y, z) => {
+      quests.onMined(id)
+      fluids.notifyRemoved(x, y, z)
+      // 挖掘碎屑（同色小方块四溅）
+      fx.burst(new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5), blockColors(id),
+        { count: 8, speed: 2.6, up: 3, size: 0.12 })
+    },
     onBlockPlaced: (id, x, y, z) => { quests.onPlaced(); portals.onBlockPlaced(id, x, y, z) },
     isRestricted: () => dims.active === 'arena',
   }
@@ -225,6 +233,10 @@ function startGame(robotConfig, save) {
 
   // —— 击杀 ——
   monsters.onKill = m => {
+    // 死亡烟花：金色齿轮光点 + 怪物本色碎块
+    const mp = new THREE.Vector3(m.ent.pos.x, m.ent.pos.y + m.h * 0.5, m.ent.pos.z)
+    fx.burst(mp, ['#ffd75e', '#fff3c4'], { count: 10, speed: 4, up: 4, size: 0.14, additive: true })
+    fx.burst(mp, [m.def.projColor || '#8a8a8a'], { count: 8, speed: 3.5, up: 3, size: 0.18 })
     drops.spawnGears(new THREE.Vector3(m.ent.pos.x, m.ent.pos.y, m.ent.pos.z), m.gearDrop)
     quests.onKill()
     if (m.def.dropItem) {
@@ -238,7 +250,32 @@ function startGame(robotConfig, save) {
     }
     pets.tryCapture(m)
   }
-  monsters.onExplode = () => hud.toast('💥 轰！！')
+  monsters.onExplode = pos => {
+    hud.toast('💥 轰！！')
+    if (pos) {
+      const ep = new THREE.Vector3(pos.x, pos.y + 0.4, pos.z)
+      fx.burst(ep, ['#ff5a1a', '#ffb35e', '#3a3a3a'], { count: 24, speed: 7, up: 5, size: 0.24 })
+      fx.ring(ep, '#ff8a3a', { maxR: 3.5, life: 0.35 })
+      fx.shake(0.3)
+    }
+  }
+  // 近战/技能命中反馈
+  monsters.onHit = (m2, dmg) => {
+    fx.burst(new THREE.Vector3(m2.ent.pos.x, m2.ent.pos.y + m2.h * 0.6, m2.ent.pos.z),
+      '#ffffff', { count: 4, speed: 2.2, up: 1.6, size: 0.09, additive: true })
+  }
+  // 鲲鹏俯冲：风压线
+  monsters.onSwoopStart = m2 => {
+    fx.burst(new THREE.Vector3(m2.ent.pos.x, m2.ent.pos.y, m2.ent.pos.z),
+      ['#cfe8ff', '#ffffff'], { count: 14, speed: 5, up: -2, size: 0.16, gravity: -6, additive: true })
+  }
+  // 船的浪花
+  boats.onWake = (pos, speed) => {
+    if (Math.random() < 0.35) {
+      fx.burst(new THREE.Vector3(pos.x, pos.y + 0.15, pos.z),
+        ['#cfe8ff', '#ffffff', '#a8d4ee'], { count: 3, speed: 1.6, up: 2.2, size: 0.1 })
+    }
+  }
   pets.onCapture = pet => {
     hud.toast(`🐾 收服了 ${pet.name}！怪越强宠越强！（B 背包→宠物页出战）`)
     quests.onPetCaptured()
@@ -267,6 +304,7 @@ function startGame(robotConfig, save) {
     projectiles.clearAll()
     drops.clearAll()
     fluids.setWorld(ctx.world)
+    fx.clear()
     boats.riding = null
     player.mount = null
     player.ent.pos.x = spawnPos[0]; player.ent.pos.y = spawnPos[1]; player.ent.pos.z = spawnPos[2]
@@ -460,7 +498,12 @@ function startGame(robotConfig, save) {
         const d = Math.hypot(m.ent.pos.x - player.ent.pos.x, m.ent.pos.z - player.ent.pos.z)
         if (d < CFG.QUAKE_RADIUS && Math.abs(m.ent.pos.y - player.ent.pos.y) < 3) { monsters.hitMonster(m, dmg, player.ent.pos); n++ }
       }
-      hud.toast(n ? `🦶 大地震击！命中 ${n} 只！` : '🦶 大地震击！')
+      // 特效：冲击环 + 土块飞溅 + 震屏
+      const pp = new THREE.Vector3(player.ent.pos.x, player.ent.pos.y, player.ent.pos.z)
+      fx.ring(pp, '#c9a15a', { maxR: CFG.QUAKE_RADIUS + 1 })
+      fx.ring(pp, '#8a6142', { maxR: CFG.QUAKE_RADIUS - 1, life: 0.4 })
+      fx.burst(pp.clone().setY(pp.y + 0.2), ['#7a5538', '#8a6142', '#5f4029'], { count: 26, speed: 6, up: 5, size: 0.22 })
+      fx.shake(0.4)
     }
     if (code === 'KeyC' && player.hasAbility('fire')) {
       if (player.fireCooldown > 0) { hud.toast(`喷火冷却中… ${player.fireCooldown.toFixed(1)}s`); return }
@@ -475,7 +518,13 @@ function startGame(robotConfig, save) {
         const dot = (dx * fwd.x + dz * fwd.z) / (d || 1)
         if (dot > 0.6) { monsters.hitMonster(m, dmg, player.ent.pos); n++ }
       }
-      hud.toast(n ? `🔥 烈焰喷射！烧到 ${n} 只！` : '🔥 烈焰喷射！')
+      // 特效：锥形三色火舌 + 余烬 + 轻震
+      const from = new THREE.Vector3(player.ent.pos.x, player.ent.pos.y + 1.1, player.ent.pos.z)
+        .addScaledVector(fwd, 0.6)
+      const fdir = new THREE.Vector3(fwd.x, 0.06, fwd.z)
+      fx.cone(from, fdir, ['#ff5a1a', '#ffb35e', '#ffd75e'], { count: 26, speed: 10, size: 0.24 })
+      fx.cone(from, fdir, ['#ff8a3a'], { count: 8, speed: 6, size: 0.14 })
+      fx.shake(0.12)
     }
     if (code === 'KeyX' && player.hasAbility('light')) {
       if (player.flashCooldown > 0) { hud.toast(`闪光冷却中… ${player.flashCooldown.toFixed(1)}s`); return }
@@ -486,14 +535,25 @@ function startGame(robotConfig, save) {
         if (d > CFG.FLASH_RADIUS) continue
         const evil = m.def.tags.includes('邪恶类')
         m.stunT = evil ? 2.5 : 1
-        if (evil) { monsters.hitMonster(m, CFG.FLASH_DMG, null); n++ }
+        if (evil) {
+          monsters.hitMonster(m, CFG.FLASH_DMG, null); n++
+          fx.burst(new THREE.Vector3(m.ent.pos.x, m.ent.pos.y + m.h * 0.6, m.ent.pos.z),
+            ['#ffe89a', '#fff3c4'], { count: 10, speed: 3, up: 2.5, size: 0.14, additive: true })
+        }
       }
+      // 特效：全屏白闪 + 金色光环扩散
+      fx.flash()
+      fx.ring(new THREE.Vector3(player.ent.pos.x, player.ent.pos.y, player.ent.pos.z),
+        '#fff3c4', { maxR: CFG.FLASH_RADIUS, life: 0.6 })
       hud.toast(`✨ 净化闪光！净化了 ${n} 只邪恶类！`)
     }
     if (code === 'KeyZ' && player.hasAbility('dark')) {
       if (player.stealthCooldown > 0) { hud.toast(`隐身冷却中… ${player.stealthCooldown.toFixed(1)}s`); return }
       player.stealthCooldown = CFG.STEALTH_COOLDOWN
       player.stealthTime = CFG.STEALTH_DURATION
+      // 特效：紫烟一团
+      fx.burst(new THREE.Vector3(player.ent.pos.x, player.ent.pos.y + 0.9, player.ent.pos.z),
+        ['#7a4a9e', '#4a2a66', '#c084ff'], { count: 20, speed: 2.5, up: 2, size: 0.24, gravity: -2 })
       hud.toast('🌑 隐身！怪物看不见你了（8 秒）')
     }
     if (code === 'KeyH') {
@@ -612,7 +672,7 @@ function startGame(robotConfig, save) {
     controls.virtualLock = true
     window.__qiqi = {
       controls, player, ctx, dims, quests, towerCtrl, monsters, chests, drops, pets, boats,
-      portals, dayNight, flags, npc, interaction, pickups, fluids, atlas, STRUCT, HELL, VOID, ARENA, POS,
+      portals, dayNight, flags, npc, interaction, pickups, fluids, atlas, fx, STRUCT, HELL, VOID, ARENA, POS,
       giveBlock: (id, n) => player.addBlock(id, n),
       give: (id, n = 1) => player.addItem(id, n),
       gainGear: grantGear,
@@ -709,6 +769,7 @@ function startGame(robotConfig, save) {
       quests.setFloor(dims.active === 'arena' ? towerCtrl.currentFloor : 0)
       dayNight.update(dt, dims.active === 'main', camera.position)
       fluids.tick(dt)
+      fx.update(dt)
       // 海面流动动画（纹理滚动 + 轻微呼吸）
       atlas.waterTexture.offset.x = (now * 0.000020) % 1
       atlas.waterTexture.offset.y = (now * 0.000013) % 1
@@ -735,6 +796,7 @@ function startGame(robotConfig, save) {
     ctx.chunks && ctx.chunks.update()
     ctx.chunks && ctx.chunks.updateVisibility(camera.position.x, camera.position.z, CFG.RENDER_DIST)
     controls.updateCamera(camera, ctx.world, player.headPos())
+    fx.applyShake(camera)
     player.model.group.visible = (controls.camDist ?? CFG.CAM_DIST) > 1.2
 
     // HUD

@@ -128,7 +128,8 @@ export class ChunkManager {
     // 替换旧 mesh
     const old = this.meshes.get(key)
     if (old) {
-      for (const m of Object.values(old)) {
+      for (const k of ['solid', 'water', 'fire']) {
+        const m = old[k]
         if (m) { this.group.remove(m); m.geometry.dispose() }
       }
     }
