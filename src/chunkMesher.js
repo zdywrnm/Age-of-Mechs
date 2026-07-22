@@ -32,8 +32,9 @@ export class ChunkManager {
     this.surfaceY = opts.surfaceY ?? null
     this.material = new THREE.MeshLambertMaterial({ map: atlas.texture, vertexColors: true })
     this.waterMaterial = new THREE.MeshLambertMaterial({
-      map: atlas.texture, vertexColors: true, transparent: true, opacity: 0.62, depthWrite: false,
+      map: atlas.waterTexture, vertexColors: true, transparent: true, opacity: 0.62, depthWrite: false,
     })
+    atlas.waterMaterials && atlas.waterMaterials.push(this.waterMaterial)
     this.fireMaterial = new THREE.MeshBasicMaterial({
       map: atlas.texture, vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide,
     })
@@ -68,15 +69,28 @@ export class ChunkManager {
               if (nid !== B.AIR) continue
             }
             const base = pass.positions.length / 3
-            const { u0, v0, u1, v1 } = this.atlas.uvRect(def.tiles[face.side])
-            const faceUV = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]]
             const s = face.shade * dim
-            for (let i = 0; i < 4; i++) {
-              const [ox, oy, oz] = face.c[i]
-              pass.positions.push(x + ox, y + oy, z + oz)
-              pass.normals.push(face.n[0], face.n[1], face.n[2])
-              pass.colors.push(s, s, s)
-              pass.uvs.push(faceUV[i][0], faceUV[i][1])
+            if (pass === W) {
+              // 水：世界坐标平面 UV（配合 offset 滚动产生流动感）
+              for (let i = 0; i < 4; i++) {
+                const [ox, oy, oz] = face.c[i]
+                const wx = x + ox, wy = y + oy, wz = z + oz
+                pass.positions.push(wx, wy, wz)
+                pass.normals.push(face.n[0], face.n[1], face.n[2])
+                pass.colors.push(s, s, s)
+                if (face.n[1] !== 0) pass.uvs.push(wx * 0.22, wz * 0.22)
+                else pass.uvs.push((wx + wz) * 0.22, wy * 0.22)
+              }
+            } else {
+              const { u0, v0, u1, v1 } = this.atlas.uvRect(def.tiles[face.side])
+              const faceUV = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]]
+              for (let i = 0; i < 4; i++) {
+                const [ox, oy, oz] = face.c[i]
+                pass.positions.push(x + ox, y + oy, z + oz)
+                pass.normals.push(face.n[0], face.n[1], face.n[2])
+                pass.colors.push(s, s, s)
+                pass.uvs.push(faceUV[i][0], faceUV[i][1])
+              }
             }
             pass.indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
           }

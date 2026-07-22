@@ -79,7 +79,13 @@ export class MonsterManager {
       state: 'idle', wanderDir: [0, 0, 0], wanderT: 0,
       attackT: 0, fuseT: -1, shotT: 1 + Math.random(),
       stunT: 0, healTick: 0,
-      homeY: y,
+      homeY: y, homeX: x, homeZ: z,
+      patrol: opts.patrol || null,               // {cx,cz,r,y?} 全速环形巡逻
+      patrolA: Math.random() * Math.PI * 2,
+      aggroR: opts.aggroR || 0,                  // 自定义仇恨半径
+      strafeDir: Math.random() < 0.5 ? 1 : -1,   // 远程怪横向游走方向
+      strafeT: 1 + Math.random() * 2,
+      swoopPhase: null, swoopT: 0,               // 俯冲 boss（鲲鹏）状态
       symbolPos: opts.symbolPos || null,
       canShoot: def.ranged || (def.maybeRanged && Math.random() < def.maybeRanged),
       dead: false, hurtT: 0,
@@ -155,6 +161,46 @@ export class MonsterManager {
     }
   }
 
+  // 朝目标点匀速飞（飞行怪三轴）
+  steer(m, tx, ty, tz, speed) {
+    const dx = tx - m.ent.pos.x, dy = ty - m.ent.pos.y, dz = tz - m.ent.pos.z
+    const d = Math.hypot(dx, dy, dz) || 1
+    m.ent.vel.x = (dx / d) * speed
+    m.ent.vel.y = (dy / d) * speed
+    m.ent.vel.z = (dz / d) * speed
+  }
+
+  // 鲲鹏式俯冲 AI：盘旋 → 俯冲扑击 → 拉升，循环
+  swoopAI(m, dt, dx, dy, dz) {
+    const p = this.player
+    const s = m.speed
+    if (!m.swoopPhase) { m.swoopPhase = 'hover'; m.swoopT = 1.5 }
+    m.swoopT -= dt
+    if (m.swoopPhase === 'hover') {
+      m.patrolA += dt * 0.9
+      this.steer(m,
+        p.ent.pos.x + Math.cos(m.patrolA) * 14,
+        p.ent.pos.y + 22,
+        p.ent.pos.z + Math.sin(m.patrolA) * 14, s)
+      if (m.canShoot) {
+        m.shotT -= dt
+        if (m.shotT <= 0) { m.shotT = 2.2; this.shoot(m, { x: p.ent.pos.x, y: p.ent.pos.y + 0.9, z: p.ent.pos.z }, 16) }
+      }
+      if (m.swoopT <= 0) { m.swoopPhase = 'dive'; m.swoopT = 4; this.onSwoopStart && this.onSwoopStart(m) }
+    } else if (m.swoopPhase === 'dive') {
+      this.steer(m, p.ent.pos.x, p.ent.pos.y + 0.6, p.ent.pos.z, s * 2.1)
+      const d3 = Math.hypot(dx, dy, dz)
+      if (d3 < m.w * 0.5 + 1.8) {
+        p.takeDamage(m.atk, m.ent.pos)
+        m.swoopPhase = 'climb'; m.swoopT = 2.2
+      } else if (m.swoopT <= 0) { m.swoopPhase = 'climb'; m.swoopT = 2.2 }
+    } else {
+      // climb：拉升回巡航高度
+      this.steer(m, m.ent.pos.x - dx * 0.3, p.ent.pos.y + 26, m.ent.pos.z - dz * 0.3, s * 1.2)
+      if (m.swoopT <= 0) { m.swoopPhase = 'hover'; m.swoopT = 1.2 + Math.random() * 1.5 }
+    }
+  }
+
   update(dt) {
     const p = this.player
     const stealthed = p.stealthTime > 0
@@ -193,34 +239,70 @@ export class MonsterManager {
         m.ent.vel.x = 0; m.ent.vel.z = 0
         if (m.fuseT >= 0.8) { this.explode(m); continue }
       } else if (m.state === 'idle') {
-        const aggroR = m.isBoss ? CFG.AGGRO_RANGE * 2 : CFG.AGGRO_RANGE
-        if (!m.def.passive && dist3 < aggroR && !p.dead && !stealthed) m.state = 'chase'
-        m.wanderT -= dt
-        if (m.wanderT <= 0) {
-          m.wanderT = 2 + Math.random() * 2
-          if (Math.random() < 0.4) m.wanderDir = [0, 0, 0]
-          else {
-            const a = Math.random() * Math.PI * 2
-            m.wanderDir = [Math.cos(a), m.ent.noGravity ? (Math.random() - 0.5) * 0.4 : 0, Math.sin(a)]
+        const aggroR = m.aggroR || (m.isBoss ? CFG.AGGRO_RANGE * 2 : CFG.AGGRO_RANGE)
+        // 俯冲型 boss（鲲鹏）按水平距离仇恨——它在高空，不能要求玩家飞上去
+        const aggroDist = m.def.swoop ? distH : dist3
+        if (!m.def.passive && aggroDist < aggroR && !p.dead && !stealthed) { m.state = 'chase'; m.swoopPhase = null }
+        if (m.patrol) {
+          // 全速环形巡逻（肉眼可见地一直在动）
+          m.patrolA += (m.speed / Math.max(6, m.patrol.r)) * dt
+          const tx = m.patrol.cx + Math.cos(m.patrolA) * m.patrol.r
+          const tz = m.patrol.cz + Math.sin(m.patrolA) * m.patrol.r
+          const ddx = tx - m.ent.pos.x, ddz = tz - m.ent.pos.z
+          const dd = Math.hypot(ddx, ddz) || 1
+          m.ent.vel.x = (ddx / dd) * m.speed
+          m.ent.vel.z = (ddz / dd) * m.speed
+          if (m.ent.noGravity) {
+            const ty = m.patrol.y ?? m.homeY
+            m.ent.vel.y = THREE.MathUtils.clamp((ty - m.ent.pos.y) * 0.8, -2.5, 2.5)
+          }
+          // 卡住自救：1 秒没挪动就把巡逻目标沿圆环快进（绕开障碍/海岸）
+          if (m._stkT === undefined) { m._stkT = 0; m._stkX = m.ent.pos.x; m._stkZ = m.ent.pos.z }
+          m._stkT += dt
+          if (m._stkT > 1) {
+            if (Math.hypot(m.ent.pos.x - m._stkX, m.ent.pos.z - m._stkZ) < 0.5) m.patrolA += 1.0
+            m._stkT = 0; m._stkX = m.ent.pos.x; m._stkZ = m.ent.pos.z
+          }
+        } else {
+          m.wanderT -= dt
+          if (m.wanderT <= 0) {
+            m.wanderT = 2 + Math.random() * 2
+            if (Math.random() < 0.4) m.wanderDir = [0, 0, 0]
+            else {
+              const a = Math.random() * Math.PI * 2
+              m.wanderDir = [Math.cos(a), m.ent.noGravity ? (Math.random() - 0.5) * 0.4 : 0, Math.sin(a)]
+            }
+          }
+          m.ent.vel.x = m.wanderDir[0] * m.speed * 0.35
+          m.ent.vel.z = m.wanderDir[2] * m.speed * 0.35
+          if (m.ent.noGravity) {
+            // 巡游高度回归
+            const drift = m.wanderDir[1] * m.speed * 0.35 + (m.homeY - m.ent.pos.y) * 0.3
+            m.ent.vel.y = THREE.MathUtils.clamp(drift, -1.5, 1.5)
           }
         }
-        m.ent.vel.x = m.wanderDir[0] * m.speed * 0.35
-        m.ent.vel.z = m.wanderDir[2] * m.speed * 0.35
-        if (m.ent.noGravity) {
-          // 巡游高度回归
-          const drift = m.wanderDir[1] * m.speed * 0.35 + (m.homeY - m.ent.pos.y) * 0.3
-          m.ent.vel.y = THREE.MathUtils.clamp(drift, -1.5, 1.5)
-        }
+      } else if (m.state === 'chase' && m.def.swoop) {
+        // 鲲鹏：专属俯冲循环
+        if (p.dead || stealthed) { m.state = 'idle'; m.swoopPhase = null; continue }
+        this.swoopAI(m, dt, dx, dy, dz)
+        if (distH > (m.aggroR || 60) * 1.8) { m.state = 'idle'; m.swoopPhase = null }
       } else if (m.state === 'chase') {
         if (p.dead || stealthed) { m.state = 'idle'; m.ent.vel.x = m.ent.vel.z = 0; if (m.ent.noGravity) m.ent.vel.y = 0; continue }
         const nd = dist3 || 1
         let mvx = dx / nd, mvy = dy / nd, mvz = dz / nd
 
-        // 远程：保持距离
+        // 远程：保持距离 + 横向游走（不再站桩）
         if (m.canShoot) {
           const keep = m.isBoss ? 9 : 8
+          m.strafeT -= dt
+          if (m.strafeT <= 0) { m.strafeT = 1.5 + Math.random() * 2; if (Math.random() < 0.6) m.strafeDir *= -1 }
           if (distH < keep - 2) { mvx = -mvx; mvz = -mvz }
-          else if (distH < keep + 2) { mvx = 0; mvz = 0; if (!m.ent.noGravity) mvy = 0 }
+          else if (distH < keep + 3) {
+            const nH = distH || 1
+            const tX = -(dz / nH) * m.strafeDir, tZ = (dx / nH) * m.strafeDir
+            mvx = tX * 0.8; mvz = tZ * 0.8
+            if (!m.ent.noGravity) mvy = 0
+          }
           m.shotT -= dt
           if (dist3 < 20 && m.shotT <= 0) {
             m.shotT = m.isBoss ? 1.6 : 2.5
@@ -253,15 +335,6 @@ export class MonsterManager {
           if (m.ent.noGravity) m.ent.vel.y = mvy * m.speed * 0.8
         } else { m.ent.vel.x *= 0.92; m.ent.vel.z *= 0.92 }
 
-        // 地面怪卡墙跳
-        if (!m.ent.noGravity && m.ent.onGround && (mvx !== 0 || mvz !== 0)) {
-          const aheadX = Math.floor(m.ent.pos.x + mvx * 0.8)
-          const aheadZ = Math.floor(m.ent.pos.z + mvz * 0.8)
-          const fy = Math.floor(m.ent.pos.y)
-          if (this.world.isSolid(aheadX, fy, aheadZ) && !this.world.isSolid(aheadX, fy + 1, aheadZ)) {
-            m.ent.vel.y = 8
-          }
-        }
         if (dist3 > CFG.AGGRO_RANGE * (m.isBoss ? 4 : 2)) m.state = 'idle'
       }
 
@@ -275,11 +348,57 @@ export class MonsterManager {
         }
       }
 
+      // 地面怪卡墙自动跳（追击/巡逻/游荡通用）
+      if (!m.ent.noGravity && m.ent.onGround) {
+        const vs = Math.hypot(m.ent.vel.x, m.ent.vel.z)
+        if (vs > 0.5) {
+          const ax = Math.floor(m.ent.pos.x + (m.ent.vel.x / vs) * 0.8)
+          const az = Math.floor(m.ent.pos.z + (m.ent.vel.z / vs) * 0.8)
+          const fy = Math.floor(m.ent.pos.y)
+          if (this.world.isSolid(ax, fy, az) && !this.world.isSolid(ax, fy + 1, az)) m.ent.vel.y = 8
+        }
+      }
+
+      // 陆地怪避水：不追进深水；被击退落水会游回岸边
+      if (m.def.medium === 'ground') {
+        if (m.ent.inWater) {
+          m.ent.swimUp = true
+          const hx = m.homeX - m.ent.pos.x, hz = m.homeZ - m.ent.pos.z
+          const hd = Math.hypot(hx, hz) || 1
+          m.ent.vel.x = (hx / hd) * m.speed * 0.8
+          m.ent.vel.z = (hz / hd) * m.speed * 0.8
+        } else {
+          m.ent.swimUp = false
+          const sp = Math.hypot(m.ent.vel.x, m.ent.vel.z)
+          if (sp > 0.3) {
+            const lx = m.ent.pos.x + (m.ent.vel.x / sp) * 1.1
+            const lz = m.ent.pos.z + (m.ent.vel.z / sp) * 1.1
+            const fy = Math.floor(m.ent.pos.y)
+            const a1 = this.world.get(Math.floor(lx), fy - 1, Math.floor(lz))
+            const a2 = this.world.get(Math.floor(lx), fy - 2, Math.floor(lz))
+            if (a1 === B.WATER && a2 === B.WATER) {
+              // 前方是深水 → 沿岸转向，不行就在岸边停住
+              const tX = -m.ent.vel.z / sp, tZ = m.ent.vel.x / sp
+              const sx = m.ent.pos.x + tX * 1.1, sz = m.ent.pos.z + tZ * 1.1
+              if (this.world.get(Math.floor(sx), fy - 1, Math.floor(sz)) !== B.WATER) {
+                m.ent.vel.x = tX * m.speed * 0.7; m.ent.vel.z = tZ * m.speed * 0.7
+              } else {
+                m.ent.vel.x = 0; m.ent.vel.z = 0
+                // 巡逻怪被海岸卡住：目标点沿圆环快进，绕着岛走而不是傻站
+                if (m.patrol && m.state === 'idle') m.patrolA += dt * 2.5
+              }
+            }
+          }
+        }
+      }
+
       moveEntity(this.world, m.ent, dt)
       if (m.ent.pos.y < -5) { this.kill(m); continue }
 
       m.group.position.set(m.ent.pos.x, m.ent.pos.y, m.ent.pos.z)
-      if (distH > 0.1 && m.state === 'chase') m.group.rotation.y = Math.atan2(-dx, -dz) + Math.PI
+      const velSp = Math.hypot(m.ent.vel.x, m.ent.vel.z)
+      if (m.state === 'chase' && !m.def.swoop && distH > 0.1) m.group.rotation.y = Math.atan2(-dx, -dz) + Math.PI
+      else if (velSp > 0.5) m.group.rotation.y = Math.atan2(-m.ent.vel.x, -m.ent.vel.z) + Math.PI
       if (m.hurtT > 0) m.group.traverse(o => { if (o.isMesh && o.material.emissive) o.material.emissive.setRGB(0.6, 0, 0) })
       else if (m.fuseT < 0) m.group.traverse(o => { if (o.isMesh && o.material.emissive) o.material.emissive.setScalar(0) })
     }

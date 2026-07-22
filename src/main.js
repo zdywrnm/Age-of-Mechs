@@ -19,6 +19,7 @@ import { DropManager } from './entities/drops.js'
 import { AuthorNPC } from './entities/npc.js'
 import { MysteryPickupManager } from './entities/mysteryPickup.js'
 import { BoatManager } from './entities/boat.js'
+import { FluidSim } from './game/fluids.js'
 import { PetManager } from './game/pets.js'
 import { QuestManager } from './game/quests.js'
 import { ChestRegistry, MYSTERY_GEARS } from './game/chests.js'
@@ -142,6 +143,8 @@ function startGame(robotConfig, save) {
   const drops = new DropManager(() => entityGroup, ctx, player)
   const pets = new PetManager(() => entityGroup, ctx, player, monsters)
   const boats = new BoatManager(mainGroup, ctx, player)
+  const fluids = new FluidSim()
+  fluids.setWorld(ctx.world)
   const pickups = new MysteryPickupManager(player)
   const dayNight = new DayNight(scene, { hemi, sun, fog: scene.fog })
 
@@ -200,7 +203,7 @@ function startGame(robotConfig, save) {
     get world() { return ctx.world },
     onChestOpen: (x, y, z) => chests.open(x, y, z),
     onBedUse: () => useBed(),
-    onBlockMined: (id, x, y, z) => quests.onMined(id),
+    onBlockMined: (id, x, y, z) => { quests.onMined(id); fluids.notifyRemoved(x, y, z) },
     onBlockPlaced: (id, x, y, z) => { quests.onPlaced(); portals.onBlockPlaced(id, x, y, z) },
     isRestricted: () => dims.active === 'arena',
   }
@@ -263,6 +266,7 @@ function startGame(robotConfig, save) {
     monsters.clearAll()
     projectiles.clearAll()
     drops.clearAll()
+    fluids.setWorld(ctx.world)
     boats.riding = null
     player.mount = null
     player.ent.pos.x = spawnPos[0]; player.ent.pos.y = spawnPos[1]; player.ent.pos.z = spawnPos[2]
@@ -298,17 +302,25 @@ function startGame(robotConfig, save) {
     if (!player.hasGear('tide')) {
       monsters.spawn('seaguardian', POS.SEA_PALACE.x + 0.5, 28, POS.SEA_PALACE.z + 6.5, {
         boss: true, bossName: '海底守卫者', hp: 4000, atk: 26, gears: 80, tag: 'mainboss',
+        patrol: { cx: POS.SEA_PALACE.x, cz: POS.SEA_PALACE.z + 6, r: 10 }, aggroR: 26,
       })
     }
     if (!player.pengPotion) {
       monsters.spawn('kunpeng', POS.KUNPENG_AIR.x, POS.KUNPENG_AIR.y, POS.KUNPENG_AIR.z, {
         boss: true, bossName: '鲲鹏', hp: 5000, atk: 24, gears: 80, tag: 'mainboss',
+        patrol: { cx: POS.KUNPENG_AIR.x, cz: POS.KUNPENG_AIR.z, r: 36, y: POS.KUNPENG_AIR.y }, aggroR: 60,
       })
     }
     if (!player.hasGear('mystery')) {
-      const gs = dims.get('main').world.surfaceAt(POS.FORBIDDEN.x, POS.FORBIDDEN.z)
-      monsters.spawn('forbiddengolem', POS.FORBIDDEN.x + 0.5, gs + 1, POS.FORBIDDEN.z + 0.5, {
+      // 禁地岩体建在地形上方，surfaceAt 不含结构——向上扫描找真正能站立的空位
+      const w = dims.get('main').world
+      let gy = w.surfaceAt(POS.FORBIDDEN.x, POS.FORBIDDEN.z) + 1
+      while (gy < 190 && (w.get(POS.FORBIDDEN.x, gy, POS.FORBIDDEN.z) !== B.AIR ||
+             w.get(POS.FORBIDDEN.x, gy + 1, POS.FORBIDDEN.z) !== B.AIR ||
+             w.get(POS.FORBIDDEN.x, gy + 2, POS.FORBIDDEN.z) !== B.AIR)) gy++
+      monsters.spawn('forbiddengolem', POS.FORBIDDEN.x + 0.5, gy, POS.FORBIDDEN.z + 0.5, {
         boss: true, bossName: '禁地守卫', hp: 8000, atk: 40, gears: 100, tag: 'mainboss',
+        patrol: { cx: POS.FORBIDDEN.x, cz: POS.FORBIDDEN.z, r: 9 }, aggroR: 40,
       })
     }
   }
@@ -600,7 +612,7 @@ function startGame(robotConfig, save) {
     controls.virtualLock = true
     window.__qiqi = {
       controls, player, ctx, dims, quests, towerCtrl, monsters, chests, drops, pets, boats,
-      portals, dayNight, flags, npc, interaction, pickups, STRUCT, HELL, VOID, ARENA, POS,
+      portals, dayNight, flags, npc, interaction, pickups, fluids, atlas, STRUCT, HELL, VOID, ARENA, POS,
       giveBlock: (id, n) => player.addBlock(id, n),
       give: (id, n = 1) => player.addItem(id, n),
       gainGear: grantGear,
@@ -696,6 +708,12 @@ function startGame(robotConfig, save) {
       towerCtrl.update()
       quests.setFloor(dims.active === 'arena' ? towerCtrl.currentFloor : 0)
       dayNight.update(dt, dims.active === 'main')
+      fluids.tick(dt)
+      // 海面流动动画（纹理滚动 + 轻微呼吸）
+      atlas.waterTexture.offset.x = (now * 0.000020) % 1
+      atlas.waterTexture.offset.y = (now * 0.000013) % 1
+      const wop = 0.60 + Math.sin(now * 0.0013) * 0.05
+      for (const wm of atlas.waterMaterials) wm.opacity = wop
       checkEnding()
 
       // E 提示

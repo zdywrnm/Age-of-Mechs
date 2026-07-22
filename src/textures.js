@@ -333,5 +333,39 @@ export function createAtlas() {
     }
   }
 
-  return { canvas, texture, uvRect }
+  return { canvas, texture, uvRect, waterTexture: createWaterTexture(), waterMaterials: [] }
+}
+
+// 专属可平铺水纹（世界坐标 UV + offset 滚动 = 海面流动感）
+function createWaterTexture() {
+  const c = document.createElement('canvas')
+  c.width = c.height = 64
+  const ctx = c.getContext('2d')
+  ctx.fillStyle = '#3a86c8'
+  ctx.fillRect(0, 0, 64, 64)
+  // 两层交错的波纹亮带（平铺无缝：正弦相位取整周期）
+  for (let layer = 0; layer < 2; layer++) {
+    ctx.strokeStyle = layer ? 'rgba(160,215,255,0.5)' : 'rgba(90,160,220,0.65)'
+    ctx.lineWidth = layer ? 2 : 3
+    for (let row = 0; row < 4; row++) {
+      ctx.beginPath()
+      for (let x = 0; x <= 64; x += 2) {
+        const y = row * 16 + 8 + Math.sin((x / 64) * Math.PI * 2 * 2 + row * 1.7 + layer * 2.4) * 3.5
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+    }
+  }
+  // 高光碎点
+  ctx.fillStyle = 'rgba(220,240,255,0.55)'
+  for (let n = 0; n < 26; n++) {
+    ctx.fillRect((n * 37) % 64, (n * 23 + 9) % 64, 2, 1)
+  }
+  const tex = new THREE.CanvasTexture(c)
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+  tex.magFilter = THREE.LinearFilter
+  tex.minFilter = THREE.LinearFilter
+  tex.generateMipmaps = false
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
 }

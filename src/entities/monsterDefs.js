@@ -260,7 +260,7 @@ export const MONSTER_DEFS = {
   shadowking: { name: '暗影君王', tags: ['邪恶类', '有脊椎类', '远程攻击类'], w: 1.1, h: 2.4, speed: 2.8, build: buildShadowKing, ranged: true, melee: true, medium: 'ground', projColor: '#c084ff' },
   // 大 boss
   seaguardian: { name: '海底守卫者', tags: ['鲨鱼类', '章鱼类', '无脊椎类'], w: 2.4, h: 3.4, speed: 3.0, build: buildSeaGuardian, melee: true, radial: true, medium: 'water', projColor: '#f2e8d8' },
-  kunpeng:     { name: '鲲鹏', tags: ['鸟类', '鲨鱼类', '正义类'], w: 3.4, h: 2.6, speed: 5.0, build: buildKunpeng, ranged: true, melee: true, medium: 'air', projColor: '#7dd8ff' },
+  kunpeng:     { name: '鲲鹏', tags: ['鸟类', '鲨鱼类', '正义类'], w: 3.4, h: 2.6, speed: 5.0, build: buildKunpeng, ranged: true, melee: true, swoop: true, medium: 'air', projColor: '#7dd8ff' },
   forbiddengolem: { name: '禁地守卫', tags: ['爆炸类', '远程攻击类', '邪恶类', '有脊椎类'], w: 1.8, h: 2.6, speed: 2.2, build: buildForbiddenGolem, ranged: true, radial: true, medium: 'ground', projColor: '#ff5030' },
   helldragon:  { name: '地狱魔龙', tags: ['邪恶类', '有脊椎类', '远程攻击类', '爆炸类'], w: 3.2, h: 3.2, speed: 4.0, build: () => buildDragon(3.2), ranged: true, melee: true, medium: 'air', projColor: '#ff3010' },
 }
