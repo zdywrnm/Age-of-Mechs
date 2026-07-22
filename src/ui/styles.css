@@ -120,6 +120,9 @@ body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; user-select: n
 .overlay .title { font-size: 34px; font-weight: bold; letter-spacing: 2px; margin-bottom: 14px; }
 .overlay .sub { font-size: 17px; color: var(--text-dim); line-height: 1.9; text-align: center; }
 .overlay.death { background: rgba(34,8,10,0.85); }
+.pause-btns { margin-top: 26px; display: flex; gap: 12px; }
+.pause-btns .btn { font-size: 17px; padding: 12px 30px; }
+.save-hint { margin-top: 16px; color: var(--text-dim); font-size: 13px; letter-spacing: 1px; }
 
 .debug-corner { position: absolute; left: 14px; bottom: 14px; color: var(--cyan); font: 13px/1.6 monospace;
   background: var(--steel); border: 1px solid var(--cyan-dim); clip-path: var(--chamfer-sm); padding: 7px 12px; white-space: pre; }
@@ -143,6 +146,9 @@ body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; user-select: n
 .btn:hover { filter: brightness(1.1); }
 .btn:active { transform: translateY(3px); }
 .btn.secondary { background: linear-gradient(180deg, #2c4b66, #1b3348); color: var(--cyan); border: 1px solid var(--cyan-dim); }
+.docs-link { display: inline-block; pointer-events: auto; margin-top: 26px; color: var(--text-dim);
+  font-size: 13px; letter-spacing: 2px; text-decoration: none; border-bottom: 1px dashed rgba(159,184,204,0.5); }
+.docs-link:hover { color: var(--cyan); border-color: var(--cyan); }
 
 .customize { display: flex; gap: 36px; align-items: center; }
 .preview-pane { width: 340px; height: 430px; background: var(--steel); clip-path: var(--chamfer); overflow: hidden;

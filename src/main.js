@@ -449,14 +449,31 @@ function startGame(robotConfig, save) {
   // —— 遮罩层 ——
   const pauseOverlay = document.createElement('div')
   pauseOverlay.className = 'overlay'
-  pauseOverlay.innerHTML = `<div class="title">🖱️ 点击开始冒险</div>
+  pauseOverlay.innerHTML = `<div class="title">⏸ 暂停中 · 点击空白处继续</div>
     <div class="sub">WASD 移动 · 空格跳/游泳 · 左键挖/打 · 右键放/开箱<br>
     T 变形 · B 背包 · E 对话/上船 · V 视角 · Q/C/X/Z 齿轮技能<br>
-    <b>H 被困时回城</b> · 触控板玩家：方向键转视角 · F 挖/打 · R 放/开箱</div>`
+    <b>H 被困时回城</b> · 触控板玩家：方向键转视角 · F 挖/打 · R 放/开箱</div>
+    <div class="pause-btns">
+      <button class="btn pause-save">💾 立即存档</button>
+      <button class="btn secondary pause-quit">💾 存档并回标题</button>
+    </div>
+    <div class="save-hint">游戏每 5 秒自动存档，关掉网页也不会丢进度</div>`
   document.body.appendChild(pauseOverlay)
   pauseOverlay.addEventListener('click', () => {
     controls.requestLock()
     if (DEBUG) setTimeout(() => { if (!controls.locked) controls.virtualLock = true }, 300)
+  })
+  pauseOverlay.querySelector('.pause-save').addEventListener('click', e => {
+    e.stopPropagation()
+    doSave()
+    const b = e.currentTarget
+    b.textContent = '✅ 已存档！'
+    setTimeout(() => { b.textContent = '💾 立即存档' }, 1200)
+  })
+  pauseOverlay.querySelector('.pause-quit').addEventListener('click', e => {
+    e.stopPropagation()
+    doSave()
+    location.reload()
   })
 
   const deathOverlay = document.createElement('div')

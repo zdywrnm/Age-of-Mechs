@@ -13,6 +13,7 @@ export function showStartScreen(onStart) {
       <div class="game-title">机甲时代</div>
       <div class="game-sub">第二章 · 完整世界 —— 原案：淇淇（世界的作者）</div>
       <div class="btns"></div>
+      <a class="docs-link" href="./docs.html">📜 开发历程 · 从一段口述设定到完整世界</a>
     </div>
   `
   const btns = screen.querySelector('.btns')

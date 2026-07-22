@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开发文档 · 机甲时代 Age of Mechs</title>
+<style>
+  :root { --steel:#0e151d; --panel:#141d28; --cyan:#7dfcff; --gold:#ffd75e; --text:#e8f1f8; --dim:#9fb8cc; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:linear-gradient(160deg,#0a1018,#10202e 55%,#142a3c); color:var(--text);
+    font-family:"PingFang SC","Microsoft YaHei",sans-serif; line-height:1.75; min-height:100vh; }
+  .wrap { max-width:860px; margin:0 auto; padding:48px 22px 80px; }
+  header { text-align:center; margin-bottom:52px; }
+  h1 { color:var(--gold); font-size:44px; letter-spacing:8px; text-shadow:0 0 26px rgba(255,215,94,.4); }
+  .en { color:var(--cyan); letter-spacing:10px; font-size:13px; font-weight:bold; margin-top:8px; }
+  .credit { color:var(--dim); margin-top:16px; font-size:14px; }
+  .credit a { color:var(--cyan); text-decoration:none; }
+  .play { display:inline-block; margin-top:24px; background:linear-gradient(180deg,#ffd75e,#f0a92e);
+    color:#40290a; font-weight:bold; font-size:18px; letter-spacing:2px; padding:13px 42px; text-decoration:none;
+    clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); }
+  h2 { color:var(--gold); font-size:24px; margin:44px 0 14px; padding-left:14px; border-left:4px solid var(--gold); }
+  h3 { color:var(--cyan); font-size:17px; margin:22px 0 8px; }
+  p { margin:10px 0; color:var(--text); }
+  .dim { color:var(--dim); }
+  ul, ol { margin:10px 0 10px 24px; }
+  li { margin:5px 0; }
+  strong { color:var(--gold); font-weight:bold; }
+  em { color:var(--cyan); font-style:normal; }
+  .panel { background:var(--panel); border:1px solid rgba(125,252,255,.22); padding:18px 22px; margin:16px 0;
+    clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); }
+  .bug { border-left:3px solid #ff7a5e; }
+  .bug b { color:#ffb35e; }
+  table { width:100%; border-collapse:collapse; margin:14px 0; font-size:14px; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid rgba(125,252,255,.14); vertical-align:top; }
+  th { color:var(--cyan); white-space:nowrap; }
+  td:first-child { color:var(--gold); white-space:nowrap; font-weight:bold; }
+  footer { text-align:center; margin-top:60px; color:var(--dim); font-size:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>机甲时代 · 开发文档</h1>
+  <div class="en">AGE OF MECHS — DEV HISTORY</div>
+  <div class="credit">原案 / 创世神：<strong>淇淇</strong>（9 岁）｜ 工程实现：Claude ｜
+    <a href="https://github.com/zdywrnm/Age-of-Mechs">GitHub 仓库</a></div>
+  <a class="play" href="./index.html">▶ 开始游戏</a>
+</header>
+
+<h2>第 0 阶段 · 立项：一段口述设定</h2>
+<p>项目始于淇淇口述的一段游戏设定：每个玩家出生是自由设定的变形金刚、等级由变形齿轮决定、三大陆三维度、八个神秘变形齿轮、从一级怪到最强 boss 的刷怪塔、像地核一样的地下之城……以及那条著名的世界规律——<strong>最软的是泥巴，最硬的是代码</strong>。</p>
+<p>第一件事不是写代码，而是把口述整理成《设定集》：淇淇说过的每一个字原样保留，空缺处用「💡建议」标注，由淇淇逐条拍板。设定集从 v0.1 一路修订到 v1.1，成为整个项目唯一的权威依据——<em>代码永远服从设定集</em>。</p>
+<div class="panel">
+  <h3>关键决策</h3>
+  <ul>
+    <li>技术路线：浏览器 3D 体素游戏（类 Minecraft），Three.js + Vite + 纯 JavaScript</li>
+    <li>零外部资源：所有方块纹理、模型、特效全部用代码生成</li>
+    <li>「挖一百格找宝箱」这类设定用真实地形 + 物理实现，不写特殊剧情脚本</li>
+  </ul>
+</div>
+
+<h2>第 1 章 · 初始城镇 MVP</h2>
+<p>从零手写体素引擎，做出第一个能玩的版本：Uint8Array 体素世界、chunk 面剔除网格、程序化纹理、AABB 物理、DDA 挖放；出生自定义机器人、宝座下一百格的矿石齿轮、打碎第三块诡异木板坠入的大地密室、刷怪塔前 20 层、标签制怪物、齿轮等级、8 步任务链、自动存档。验收方式：<em>清档从零、按真实操作走完全部任务链</em>。</p>
+<div class="panel bug"><b>印象深刻的 bug：</b>俯视角最初限制在 -60°，玩家根本没法「垂直往下挖一百格」——而这恰恰是淇淇设定的核心玩法。教训：手感参数必须跟着设定走。</div>
+
+<h2>第 2 章 · 完整世界</h2>
+<p>淇淇拍板了全部空缺设定（八齿轮藏匿点、暗黑地狱金子开门规则、鲲鹏与鹏之药水、刷怪塔 1000 层与地狱魔龙），世界随之完整：</p>
+<ul>
+  <li><strong>384² 大世界 + 真实海洋</strong>：游泳、涉水十分钟机制、海底宫殿</li>
+  <li><strong>四个维度</strong>：主世界 / 暗黑地狱（岩浆湖、火海勇敢者试炼）/ 终极之地（符号回血怪、虚空）/ 千层塔竞技场</li>
+  <li><strong>八神秘齿轮全部就位</strong>：齿轮装备决定形态与技能（Q 地震 / C 喷火 / X 净化 / Z 隐身）</li>
+  <li>收服大陆宠物（打败即收服、可骑乘）、作者小岛商店、背包四页签、五级剑甲合成（代码最硬）、昼夜与床、船、三档视角</li>
+  <li><strong>大结局</strong>：集齐八齿轮回驱动核心旁的作者神殿</li>
+</ul>
+
+<h2>V3 · 品质大版本（正式更名「机甲时代」）</h2>
+<p>淇淇实测后提出十项质量问题，整版重做品质。七个里程碑各自独立提交验收：</p>
+<table>
+  <tr><th>里程碑</th><th>内容</th></tr>
+  <tr><td>M1 修复层</td><td>船驾驶（浅水探测差一格的 bug + A/D 转向 + 惯性）、鲲鹏巡飞与俯冲 AI、禁地守卫巡逻、陆地怪避水、水流扩散 + 海面动画</td></tr>
+  <tr><td>M2 画质层</td><td>抗锯齿、体素顶点 AO、mipmap、完整天空系统（日月星云 + 光照随时间）、噪声纹理重绘、渲染距离剔除</td></tr>
+  <tr><td>M3 世界层</td><td>512² 地图重布局（岛间 141~177 格开阔海面）、存档 v3 与链式迁移</td></tr>
+  <tr><td>M4 模型层</td><td>机器人 v2 五形态精修、怪物全员肢体动画（扇翅/触手/蛛腿/蟹钳）、鲲鹏三节可折巨翼</td></tr>
+  <tr><td>M5 特效层</td><td>对象池粒子系统、四技能专属特效、挖掘碎屑、死亡烟花、相机震动</td></tr>
+  <tr><td>M6 UI 层</td><td>机甲主题重皮（钢灰+青金+切角面板）、世界 boss 血条、地标指南针</td></tr>
+  <tr><td>M7 工程</td><td>正式更名 Age of Mechs、README、git 仓库建立与推送</td></tr>
+</table>
+<div class="panel bug"><b>印象深刻的 bug：</b>禁地守卫纹丝不动，查了三层才找到真凶——禁地岩体建在地形上方但没更新高度表，守卫出生时被整个埋进了石头里，物理碰撞每帧把它的速度清零。教训：「怪物不动」不一定是 AI 的锅。</div>
+
+<h2>V3.1 · 体验反馈</h2>
+<ol>
+  <li>水边自动登岸（在水里再也不会困住）</li>
+  <li>右上角小地图（海岸线/高度明暗/地标/朝向箭头）</li>
+  <li>代码矿石字符环绕特效（设定原文「字母连成线」的动态化）</li>
+  <li>渐进流动水：浅水漫过来 → 1.2 秒涨满整格；静水面微降更像液体</li>
+  <li>挖掘破碎动画：四阶段裂纹蔓延 + 末段抖动 + 分阶碎屑</li>
+</ol>
+
+<h2>V3.2 · 存档菜单与开源网站</h2>
+<p>暂停菜单加「💾 立即存档」「存档并回标题」；本开发文档上线 GitHub Pages——你现在看到的这个网站。</p>
+
+<h2>工程方法论</h2>
+<div class="panel">
+  <ol>
+    <li><strong>设定即法律</strong>：淇淇写的内容一字不改；工程只能在空缺处提建议并等拍板</li>
+    <li><strong>每个里程碑独立验收</strong>：浏览器内真实操作或模拟时间快进，全部通过才提交</li>
+    <li><strong>调试基建先行</strong>：debug 模式 + 假时间戳快进，让「挖一百格」秒级验证</li>
+    <li><strong>bug 找病根不贴膏药</strong>：每个修复都先定位到行号</li>
+    <li><strong>对小朋友友好是设计约束</strong>：摔不死、死亡不掉落、被困按 H 回城、触控板全键盘可玩</li>
+  </ol>
+</div>
+
+<footer>Three.js · 自研体素引擎 · 纯 JS · Vite · GitHub Pages<br><br>—— 机甲时代开发组（淇淇 &amp; Claude）</footer>
+</div>
+</body>
+</html>
