@@ -7,6 +7,20 @@ import { BLOCKS } from '../blocks.js'
 
 const FORM_NAMES = { robot: '🤖 机器人', car: '🚗 小车', armor: '🛡️ 矿石装甲', dive: '🤿 潜水', super: '🌈 全能' }
 
+// 小地图配色（按方块 id）
+const MM_COLORS = {
+  1: '#5cb544', 2: '#8a6142', 3: '#8f6b3d', 4: '#3f8f33', 5: '#8d8d8d', 6: '#9a9a9a',
+  7: '#39c8c4', 8: '#e8b53a', 9: '#1a2a1a', 10: '#cfc4b2', 11: '#a9793f', 12: '#e8b53a',
+  13: '#2b2b2f', 14: '#e2d29a', 15: '#2a6aa8', 16: '#e85f1a', 17: '#4a4a50', 22: '#3a2c50',
+  23: '#d8d0a8', 26: '#3a8fa8', 27: '#4a7a4a', 29: '#2e2320', 30: '#ffe89a', 31: '#3a7ab8',
+}
+function shade(hex, f) {
+  const r = Math.min(255, Math.round(parseInt(hex.slice(1, 3), 16) * f))
+  const g = Math.min(255, Math.round(parseInt(hex.slice(3, 5), 16) * f))
+  const b = Math.min(255, Math.round(parseInt(hex.slice(5, 7), 16) * f))
+  return `rgb(${r},${g},${b})`
+}
+
 export class HUD {
   constructor(atlas) {
     this.atlas = atlas
@@ -36,6 +50,7 @@ export class HUD {
       <div class="quest-card"><div class="quest-title"></div><div class="quest-sub"></div></div>
       <div class="boss-bar"><div class="boss-name"></div><div class="boss-hp"><div class="boss-fill"></div></div></div>
       <div class="compass"><div class="compass-tick"></div></div>
+      <div class="minimap"><canvas width="176" height="176"></canvas><div class="mm-arrow">▲</div><div class="mm-n">北</div></div>
       <div class="toasts"></div>
       <div class="crosshair"></div>
       <div class="mine-ring"></div>
@@ -192,6 +207,50 @@ export class HUD {
     d.style.top = `${y}px`
     this.el.appendChild(d)
     setTimeout(() => d.remove(), 850)
+  }
+
+  // 小地图（右上角，北朝上，玩家箭头随视角旋转）。world=null 时隐藏
+  updateMinimap(world, px, pz, yaw, seaLevel, pois = []) {
+    const mm = this.$('.minimap')
+    if (!world) { mm.style.display = 'none'; return }
+    mm.style.display = 'block'
+    this.$('.mm-arrow').style.transform = `translate(-50%,-50%) rotate(${yaw}rad)`
+    // 节流：0.4s 重绘一帧
+    const now = performance.now()
+    if (this._mmT && now - this._mmT < 400) return
+    this._mmT = now
+    const canvas = mm.querySelector('canvas')
+    const ctx = canvas.getContext('2d')
+    const R = 44                 // 半径（格）
+    const cell = canvas.width / (R * 2)
+    const cx = Math.floor(px), cz = Math.floor(pz)
+    for (let dz = -R; dz < R; dz++) {
+      for (let dx = -R; dx < R; dx++) {
+        const wx = cx + dx, wz = cz + dz
+        const sy = world.surfaceAt(wx, wz)
+        let color
+        if (sy <= 0) color = '#0a1a2e'                      // 世界外/虚空
+        else if (sy < seaLevel) color = sy < seaLevel - 20 ? '#1a4a7a' : '#2a6aa8' // 深/浅海
+        else {
+          const id = world.get(wx, sy, wz)
+          color = MM_COLORS[id] || '#7a8a5a'
+          // 高度明暗
+          const f = 0.75 + Math.min(0.5, Math.max(0, (sy - 100) / 40))
+          color = shade(color, f)
+        }
+        ctx.fillStyle = color
+        ctx.fillRect((dx + R) * cell, (dz + R) * cell, cell + 0.5, cell + 0.5)
+      }
+    }
+    // 地标点
+    for (const p of pois) {
+      const dx = p.x - px, dz = p.z - pz
+      if (Math.abs(dx) >= R || Math.abs(dz) >= R) continue
+      ctx.fillStyle = '#ffd75e'
+      ctx.beginPath()
+      ctx.arc((dx + R) * cell, (dz + R) * cell, 3, 0, Math.PI * 2)
+      ctx.fill()
+    }
   }
 
   // 指南针：屏幕顶部地标方位条（主世界）。yaw=null 时隐藏

@@ -11,7 +11,7 @@ export const B = {
   WATER: 15, LAVA: 16, MAGMA_STONE: 17, MAGMA_WOOD: 18, MAGMA_LEAVES: 19,
   FIRE: 20, PORTAL: 21, PORTAL_FRAME: 22, END_STONE: 23, SYMBOL: 24,
   BED: 25, PALACE_BRICK: 26, JUNGLE_BRICK: 27, CORE_BLOCK: 28,
-  SCORCHED: 29, GLOWSTONE: 30,
+  SCORCHED: 29, GLOWSTONE: 30, WATER_FLOW: 31,
 }
 
 export const BLOCKS = [
@@ -47,6 +47,7 @@ export const BLOCKS = [
   { name: '驱动核心', hardness: Infinity, tiles: { top: 31, side: 31, bottom: 31 }, drop: 0 },
   { name: '焦黑土',   hardness: 0.4,      tiles: { top: 32, side: 32, bottom: 32 }, drop: B.SCORCHED },
   { name: '荧光石',   hardness: 0.8,      tiles: { top: 33, side: 33, bottom: 33 }, drop: B.GLOWSTONE },
+  { name: '流动的水', hardness: Infinity, tiles: { top: 17, side: 17, bottom: 17 }, drop: 0, solid: false, opaque: false, fluid: true },
 ]
 
 export function isSolid(id) { return id !== B.AIR && BLOCKS[id].solid !== false }

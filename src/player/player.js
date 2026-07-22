@@ -235,6 +235,17 @@ export class Player {
     if (controls.enabled && controls.keys.Space) {
       if (this.ent.inWater || this.ent.inLava) {
         this.ent.swimUp = true
+        // 水边登岸：朝岸边游时，前方脚位是实心岸、岸上有空间 → 蹬水跃上岸
+        const sp = Math.hypot(vx, vz)
+        if (sp > 0.5) {
+          const lx = Math.floor(this.ent.pos.x + (vx / sp) * 0.8)
+          const lz = Math.floor(this.ent.pos.z + (vz / sp) * 0.8)
+          const fy = Math.floor(this.ent.pos.y + 0.1)
+          if (world.isSolid(lx, fy, lz) && !world.isSolid(lx, fy + 1, lz) && !world.isSolid(lx, fy + 2, lz)) {
+            this.ent.vel.y = CFG.JUMP_SPEED * 0.85
+            this.ent.swimUp = false
+          }
+        }
       } else if (this.ent.onGround) {
         let jump = CFG.JUMP_SPEED
         if (this.form === 'car' || this.form === 'dive') jump *= CFG.CAR_JUMP_MULT

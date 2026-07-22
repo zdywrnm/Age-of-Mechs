@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { CFG } from '../config.js'
 import { B, BLOCKS, isBreakable } from '../blocks.js'
 import { blockIntersectsEntity } from './physics.js'
+import { createCrackTextures } from '../textures.js'
 
 // Amanatides & Woo 体素步进。origin: Vector3, dir: 归一化 Vector3
 // 返回 { x, y, z, face: [nx,ny,nz], dist } 或 null
@@ -60,6 +61,17 @@ export class Interaction {
     this.attackCooldown = 0
     this.highlight = this.makeHighlight()
     ctx.scene.add(this.highlight)
+    // 挖掘破碎覆盖层：四阶段裂纹逐渐蔓延
+    this.crackTexs = createCrackTextures()
+    this.crack = new THREE.Mesh(
+      new THREE.BoxGeometry(1.004, 1.004, 1.004),
+      new THREE.MeshBasicMaterial({
+        map: this.crackTexs[0], transparent: true, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -2,
+      })
+    )
+    this.crack.visible = false
+    ctx.scene.add(this.crack)
 
     ctx.controls.onLeftDown = () => this.onLeftDown()
     ctx.controls.onRightDown = () => this.onRightDown()
@@ -173,20 +185,36 @@ export class Interaction {
         if (!same) { this.mineTarget = { x: hit.x, y: hit.y, z: hit.z }; this.mineProgress = 0 }
         this.mineProgress += dt
         const hardness = BLOCKS[id].hardness
-        hud.setMineProgress(this.mineProgress / hardness)
+        const ratio = this.mineProgress / hardness
+        hud.setMineProgress(ratio)
+        // 破碎动画：裂纹随进度加深，末段轻微抖动
+        this.crack.visible = true
+        this.crack.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5)
+        if (ratio > 0.85) {
+          this.crack.position.x += (Math.random() - 0.5) * 0.02
+          this.crack.position.z += (Math.random() - 0.5) * 0.02
+        }
+        const stage = Math.min(3, Math.floor(ratio * 4))
+        if (this.crack.material.map !== this.crackTexs[stage]) {
+          this.crack.material.map = this.crackTexs[stage]
+          this.crack.material.needsUpdate = true
+          // 每进一阶掉一点碎屑
+          this.ctx.onCrackStage && this.ctx.onCrackStage(hit.x, hit.y, hit.z, world.get(hit.x, hit.y, hit.z))
+        }
         if (this.mineProgress >= hardness) {
           world.set(hit.x, hit.y, hit.z, B.AIR)
           const drop = BLOCKS[id].drop
           if (drop) player.addBlock(drop)
           this.mineTarget = null; this.mineProgress = 0
           hud.setMineProgress(0)
+          this.crack.visible = false
           this.ctx.onBlockMined && this.ctx.onBlockMined(id, hit.x, hit.y, hit.z)
         }
       } else {
-        this.mineTarget = null; this.mineProgress = 0; hud.setMineProgress(0)
+        this.mineTarget = null; this.mineProgress = 0; hud.setMineProgress(0); this.crack.visible = false
       }
     } else {
-      this.mineTarget = null; this.mineProgress = 0; hud.setMineProgress(0)
+      this.mineTarget = null; this.mineProgress = 0; hud.setMineProgress(0); this.crack.visible = false
     }
   }
 }

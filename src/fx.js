@@ -22,6 +22,61 @@ export class FX {
     this.flashEl = document.createElement('div')
     this.flashEl.style.cssText = 'position:fixed;inset:0;pointer-events:none;background:#fff;opacity:0;z-index:30'
     document.body.appendChild(this.flashEl)
+
+    // —— 代码矿石光环：绿色字符环绕矿块转动（设定：字母连成线纵横交错）——
+    this.codeT = 0
+    this.codeBlocks = []
+    this.glyphTexs = []
+    const chars = 'ABCDEFXYZ0123456789'
+    for (let i = 0; i < 14; i++) {
+      const c = document.createElement('canvas')
+      c.width = c.height = 32
+      const cx = c.getContext('2d')
+      cx.font = 'bold 24px monospace'
+      cx.textAlign = 'center'; cx.textBaseline = 'middle'
+      const ch = chars[Math.floor(Math.random() * chars.length)]
+      cx.fillStyle = 'rgba(47,158,47,0.5)'
+      cx.fillText(ch, 16, 17)
+      cx.fillStyle = '#7dff7d'
+      cx.fillText(ch, 16, 16)
+      const tex = new THREE.CanvasTexture(c)
+      this.glyphTexs.push(tex)
+    }
+    this.glyphs = []
+    for (let i = 0; i < 18; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: this.glyphTexs[i % this.glyphTexs.length],
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      }))
+      s.scale.set(0.34, 0.34, 1)
+      s.visible = false
+      scene.add(s)
+      this.glyphs.push({ sprite: s, swapT: Math.random() * 2 })
+    }
+  }
+
+  // 附近的代码矿石列表（main 定期扫描后传入），每块最多 3 个环绕字符
+  setCodeBlocks(list) { this.codeBlocks = list.slice(0, 6) }
+
+  updateCodeAura(dt) {
+    this.codeT += dt
+    for (let i = 0; i < this.glyphs.length; i++) {
+      const g = this.glyphs[i]
+      const bi = Math.floor(i / 3), gi = i % 3
+      const b = this.codeBlocks[bi]
+      if (!b) { g.sprite.visible = false; continue }
+      g.sprite.visible = true
+      const a = this.codeT * 0.9 + gi * 2.09 + bi * 1.3
+      g.sprite.position.set(
+        b[0] + 0.5 + Math.cos(a) * 0.85,
+        b[1] + 0.5 + Math.sin(this.codeT * 1.5 + gi * 2 + bi) * 0.3,
+        b[2] + 0.5 + Math.sin(a) * 0.85)
+      g.swapT -= dt
+      if (g.swapT <= 0) {
+        g.swapT = 0.5 + Math.random() * 1.5
+        g.sprite.material.map = this.glyphTexs[Math.floor(Math.random() * this.glyphTexs.length)]
+      }
+    }
   }
 
   spawnOne(pos, vel, color, { life = 0.8, size = 0.16, gravity = 14, drag = 0, additive = false, fade = true } = {}) {
@@ -95,6 +150,7 @@ export class FX {
   }
 
   update(dt) {
+    this.updateCodeAura(dt)
     this.shakeAmp = Math.max(0, this.shakeAmp - dt * 1.6)
     for (const p of this.active) {
       p.life -= dt

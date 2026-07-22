@@ -77,7 +77,7 @@ export class ChunkManager {
           const id = world.get(x, y, z)
           if (id === B.AIR) continue
           const def = BLOCKS[id]
-          const pass = id === B.WATER ? W : (id === B.FIRE ? F : S)
+          const pass = (id === B.WATER || id === B.WATER_FLOW) ? W : (id === B.FIRE ? F : S)
           const dim = this.surfaceY === null ? 1 :
             Math.max(0.45, Math.min(1, 1 - (this.surfaceY - y) / 160))
           for (const face of FACES) {
@@ -93,9 +93,13 @@ export class ChunkManager {
             const s = face.shade * dim
             if (pass === W) {
               // 水：世界坐标平面 UV（配合 offset 滚动产生流动感）
+              // 水面高度：流动的水=浅层 0.55；静水面（上方为空气）微降 0.88；水体内部整格
+              const above = world.get(x, y + 1, z)
+              const wh = id === B.WATER_FLOW ? 0.55 :
+                ((above === B.WATER || above === B.WATER_FLOW) ? 1 : 0.88)
               for (let i = 0; i < 4; i++) {
                 const [ox, oy, oz] = face.c[i]
-                const wx = x + ox, wy = y + oy, wz = z + oz
+                const wx = x + ox, wy = y + (oy === 1 ? wh : 0), wz = z + oz
                 pass.positions.push(wx, wy, wz)
                 pass.normals.push(face.n[0], face.n[1], face.n[2])
                 pass.colors.push(s, s, s)

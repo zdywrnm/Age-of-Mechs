@@ -21,7 +21,7 @@ export function moveEntity(world, ent, dt) {
   const { w, h } = ent
   // 介质检测（腰部）
   const waist = world.get(Math.floor(ent.pos.x), Math.floor(ent.pos.y + h * 0.5), Math.floor(ent.pos.z))
-  ent.inWater = waist === B.WATER
+  ent.inWater = waist === B.WATER || waist === B.WATER_FLOW
   ent.inLava = waist === B.LAVA
 
   if (!ent.noGravity) {

@@ -388,6 +388,44 @@ export function createAtlas() {
   return { canvas, texture, uvRect, waterTexture: createWaterTexture(), waterMaterials: [] }
 }
 
+// 挖掘破碎四阶段裂纹（透明底，叠在被挖方块表面）
+export function createCrackTextures() {
+  const texs = []
+  for (let stage = 0; stage < 4; stage++) {
+    const c = document.createElement('canvas')
+    c.width = c.height = 64
+    const ctx = c.getContext('2d')
+    const rand = mulberry32(777 + 1)   // 各阶段同种子，裂纹逐步延伸
+    ctx.strokeStyle = 'rgba(10,8,6,0.85)'
+    ctx.lineWidth = 2
+    const branches = 3 + stage * 2
+    const steps = 2 + stage * 2
+    for (let b = 0; b < branches; b++) {
+      let px = 32 + (rand() - 0.5) * 10, py = 32 + (rand() - 0.5) * 10
+      ctx.beginPath(); ctx.moveTo(px, py)
+      for (let s = 0; s < steps; s++) {
+        px += (rand() - 0.5) * 26
+        py += (rand() - 0.5) * 26
+        ctx.lineTo(px, py)
+      }
+      ctx.stroke()
+      // 高阶段加细碎裂
+      if (stage >= 2) {
+        ctx.lineWidth = 1
+        ctx.beginPath(); ctx.moveTo(px, py)
+        ctx.lineTo(px + (rand() - 0.5) * 16, py + (rand() - 0.5) * 16)
+        ctx.stroke()
+        ctx.lineWidth = 2
+      }
+    }
+    const tex = new THREE.CanvasTexture(c)
+    tex.magFilter = THREE.NearestFilter
+    tex.minFilter = THREE.NearestFilter
+    texs.push(tex)
+  }
+  return texs
+}
+
 // 专属可平铺水纹（世界坐标 UV + offset 滚动 = 海面流动感）
 function createWaterTexture() {
   const c = document.createElement('canvas')

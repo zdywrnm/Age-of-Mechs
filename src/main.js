@@ -213,6 +213,8 @@ function startGame(robotConfig, save) {
         { count: 8, speed: 2.6, up: 3, size: 0.12 })
     },
     onBlockPlaced: (id, x, y, z) => { quests.onPlaced(); portals.onBlockPlaced(id, x, y, z) },
+    onCrackStage: (x, y, z, id) => fx.burst(new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5),
+      blockColors(id), { count: 3, speed: 1.6, up: 2, size: 0.09 }),
     isRestricted: () => dims.active === 'arena',
   }
   const interaction = new Interaction(ictx)
@@ -425,6 +427,23 @@ function startGame(robotConfig, save) {
       }
     }
     hud.toast('前面没有水面～面朝大海再放船！')
+  }
+
+  // —— 地标（指南针/小地图共用）——
+  const POIS = [
+    { x: POS.TOWER_C.x, z: POS.TOWER_C.z, icon: '🗼', label: '作者之塔' },
+    { x: POS.HUT.x, z: POS.HUT.z, icon: '🏠', label: '作者小岛' },
+    { x: POS.TAME_LAND.x, z: POS.TAME_LAND.z, icon: '🌴', label: '收服大陆' },
+    { x: POS.SEA_PALACE.x, z: POS.SEA_PALACE.z, icon: '🌊', label: '深海' },
+    { x: POS.FORBIDDEN.x, z: POS.FORBIDDEN.z, icon: '💀', label: '禁地' },
+    { x: POS.PORTAL_HELL.x, z: POS.PORTAL_HELL.z, icon: '🔥', label: '地狱门' },
+  ]
+  let codeScanT = 0
+  // 水流漫延的小水花
+  fluids.onFill = (x, y, z, fluid) => {
+    if (fluid !== B.WATER || Math.random() > 0.5) return
+    fx.burst(new THREE.Vector3(x + 0.5, y + 0.7, z + 0.5),
+      ['#cfe8ff', '#a8d4ee'], { count: 3, speed: 1.2, up: 1.8, size: 0.09 })
   }
 
   // —— 遮罩层 ——
@@ -777,18 +796,26 @@ function startGame(robotConfig, save) {
         if (bossNear) hud.showBoss(bossNear.bossName, bossNear.hp / bossNear.maxHp)
         else hud.hideBoss()
       }
-      // 指南针：主世界显示各地标方位
+      // 指南针 + 小地图：主世界显示地标方位与周边地形
       if (dims.active === 'main') {
-        hud.updateCompass(controls.yaw, [
-          { x: POS.TOWER_C.x, z: POS.TOWER_C.z, icon: '🗼', label: '作者之塔' },
-          { x: POS.HUT.x, z: POS.HUT.z, icon: '🏠', label: '作者小岛' },
-          { x: POS.TAME_LAND.x, z: POS.TAME_LAND.z, icon: '🌴', label: '收服大陆' },
-          { x: POS.SEA_PALACE.x, z: POS.SEA_PALACE.z, icon: '🌊', label: '深海' },
-          { x: POS.FORBIDDEN.x, z: POS.FORBIDDEN.z, icon: '💀', label: '禁地' },
-          { x: POS.PORTAL_HELL.x, z: POS.PORTAL_HELL.z, icon: '🔥', label: '地狱门' },
-        ], player.ent.pos)
+        hud.updateCompass(controls.yaw, POIS, player.ent.pos)
+        hud.updateMinimap(ctx.world, player.ent.pos.x, player.ent.pos.z, controls.yaw, CFG.SEA_LEVEL, POIS)
       } else {
         hud.updateCompass(null)
+        hud.updateMinimap(null)
+      }
+      // 附近代码矿石扫描（字符环绕特效）
+      codeScanT -= dt
+      if (codeScanT <= 0) {
+        codeScanT = 1.5
+        const found = []
+        const px0 = Math.floor(player.ent.pos.x), py0 = Math.floor(player.ent.pos.y), pz0 = Math.floor(player.ent.pos.z)
+        for (let dy = -8; dy <= 8 && found.length < 6; dy++)
+          for (let dz = -10; dz <= 10 && found.length < 6; dz++)
+            for (let dx = -10; dx <= 10 && found.length < 6; dx++) {
+              if (ctx.world.get(px0 + dx, py0 + dy, pz0 + dz) === B.CODE) found.push([px0 + dx, py0 + dy, pz0 + dz])
+            }
+        fx.setCodeBlocks(found)
       }
       quests.setFloor(dims.active === 'arena' ? towerCtrl.currentFloor : 0)
       dayNight.update(dt, dims.active === 'main', camera.position)

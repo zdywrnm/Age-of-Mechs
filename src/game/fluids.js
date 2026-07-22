@@ -1,31 +1,36 @@
-// 液体流动模拟（有限扩散）：挖开水/岩浆旁的方块，液体会流过去填补
-// 规则（为小朋友的体验设计，不做完整流体）：
-//  - 空格的上方或四周有液体 → 该空格被同种液体填充
-//  - 向下流动不限距离；水平扩散限 SPREAD 格（避免整片海「漏」进一个矿洞淹掉一切）
-//  - 每帧限量处理，视觉上呈现「慢慢流过来」的效果
+// 液体流动模拟 v2：渐进式流动——
+// 缺口先被「流动的水」（浅层）漫过去，稳定 1.2 秒后才涨成整格水，
+// 视觉上呈现「水流过来→水位上涨」两段过程，而不是瞬间填充。
 import { B } from '../blocks.js'
 
 const SPREAD = 4          // 水平扩散上限
-const CELLS_PER_SEC = 50  // 每秒填充格数（流动速度）
+const CELLS_PER_SEC = 40  // 每秒漫延格数（流动速度）
+const RISE_DELAY = 1.2    // 浅水涨满所需秒数
 
 export class FluidSim {
   constructor() {
     this.queue = []       // { x, y, z, depth }
+    this.rising = []      // { x, y, z, t } 等待涨满的浅水
     this.acc = 0
-    this.world = null     // 当前维度的 world（dims 切换时由 main 更新）
+    this.world = null
+    this.onFill = null    // (x, y, z, fluid) => {} 特效钩子
   }
 
   setWorld(world) {
-    if (this.world !== world) { this.world = world; this.queue = [] }
+    if (this.world !== world) { this.world = world; this.queue = []; this.rising = [] }
   }
+
+  isWater(id) { return id === B.WATER || id === B.WATER_FLOW }
 
   fluidNeighbor(x, y, z) {
     const w = this.world
-    if (w.get(x, y + 1, z) === B.WATER) return B.WATER
-    if (w.get(x, y + 1, z) === B.LAVA) return B.LAVA
+    const up = w.get(x, y + 1, z)
+    if (this.isWater(up)) return B.WATER
+    if (up === B.LAVA) return B.LAVA
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const id = w.get(x + dx, y, z + dz)
-      if (id === B.WATER || id === B.LAVA) return id
+      if (this.isWater(id)) return B.WATER
+      if (id === B.LAVA) return B.LAVA
     }
     return 0
   }
@@ -37,28 +42,45 @@ export class FluidSim {
   }
 
   tick(dt) {
-    if (!this.world || this.queue.length === 0) return
-    this.acc += dt * CELLS_PER_SEC
-    while (this.acc >= 1 && this.queue.length > 0) {
-      this.acc -= 1
-      const { x, y, z, depth } = this.queue.shift()
-      const w = this.world
-      if (w.get(x, y, z) !== B.AIR) continue
-      const fluid = this.fluidNeighbor(x, y, z)
-      if (!fluid) continue
-      // 从上方来的流动重置水平扩散计数
-      const fromAbove = w.get(x, y + 1, z) === fluid
-      const d = fromAbove ? 0 : depth
-      w.set(x, y, z, fluid, true)
-      // 继续向下与四周扩散
-      if (w.get(x, y - 1, z) === B.AIR) this.queue.push({ x, y: y - 1, z, depth: 0 })
-      if (d < SPREAD) {
-        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if (w.get(x + dx, y, z + dz) === B.AIR) this.queue.push({ x: x + dx, y, z: z + dz, depth: d + 1 })
+    if (!this.world) return
+    // —— 漫延 ——
+    if (this.queue.length) {
+      this.acc += dt * CELLS_PER_SEC
+      while (this.acc >= 1 && this.queue.length > 0) {
+        this.acc -= 1
+        const { x, y, z, depth } = this.queue.shift()
+        const w = this.world
+        if (w.get(x, y, z) !== B.AIR) continue
+        const fluid = this.fluidNeighbor(x, y, z)
+        if (!fluid) continue
+        const fromAbove = this.isWater(w.get(x, y + 1, z)) || w.get(x, y + 1, z) === B.LAVA
+        const d = fromAbove ? 0 : depth
+        // 水先以浅层「流动的水」漫过去；岩浆直接整格（岩浆黏稠）
+        if (fluid === B.WATER) {
+          w.set(x, y, z, B.WATER_FLOW, true)
+          this.rising.push({ x, y, z, t: RISE_DELAY })
+        } else {
+          w.set(x, y, z, fluid, true)
+        }
+        this.onFill && this.onFill(x, y, z, fluid)
+        if (w.get(x, y - 1, z) === B.AIR) this.queue.push({ x, y: y - 1, z, depth: 0 })
+        if (d < SPREAD) {
+          for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            if (w.get(x + dx, y, z + dz) === B.AIR) this.queue.push({ x: x + dx, y, z: z + dz, depth: d + 1 })
+          }
         }
       }
+      if (this.queue.length > 4000) this.queue.length = 4000
     }
-    // 队列兜底：防极端情况堆积
-    if (this.queue.length > 4000) this.queue.length = 4000
+    // —— 浅水涨满 ——
+    if (this.rising.length) {
+      for (const r of this.rising) {
+        r.t -= dt
+        if (r.t <= 0 && this.world.get(r.x, r.y, r.z) === B.WATER_FLOW) {
+          this.world.set(r.x, r.y, r.z, B.WATER, true)
+        }
+      }
+      this.rising = this.rising.filter(r => r.t > 0)
+    }
   }
 }
