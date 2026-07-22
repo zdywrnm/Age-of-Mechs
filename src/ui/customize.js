@@ -10,8 +10,8 @@ export function showStartScreen(onStart) {
   const saved = hasSave()
   screen.innerHTML = `
     <div class="start-box">
-      <div class="game-title">淇淇小游戏</div>
-      <div class="game-sub">变形金刚 · 初始城镇篇 —— 原案：淇淇（世界的作者）</div>
+      <div class="game-title">机甲时代</div>
+      <div class="game-sub">第二章 · 完整世界 —— 原案：淇淇（世界的作者）</div>
       <div class="btns"></div>
     </div>
   `

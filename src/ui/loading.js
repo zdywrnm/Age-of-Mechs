@@ -5,7 +5,7 @@ export class LoadingUI {
     el.className = 'screen'
     el.innerHTML = `
       <div class="start-box">
-        <div class="game-title">淇淇小游戏</div>
+        <div class="game-title">机甲时代</div>
         <div class="game-sub loading-msg">正在创造世界……</div>
         <div class="loading-bar-wrap"><div class="loading-fill"></div></div>
       </div>

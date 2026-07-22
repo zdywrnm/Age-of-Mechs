@@ -766,6 +766,30 @@ function startGame(robotConfig, save) {
       for (const f of folkNpcs) f.update(dt)
       portals.update(dt)
       towerCtrl.update()
+      // 世界 boss 血条（塔外）：显示最近一只已仇恨的 boss
+      if (dims.active !== 'arena') {
+        let bossNear = null, bossD = 1e9
+        for (const m of monsters.list) {
+          if (!m.isBoss || m.dead || m.state !== 'chase') continue
+          const d = Math.hypot(m.ent.pos.x - player.ent.pos.x, m.ent.pos.z - player.ent.pos.z)
+          if (d < bossD) { bossD = d; bossNear = m }
+        }
+        if (bossNear) hud.showBoss(bossNear.bossName, bossNear.hp / bossNear.maxHp)
+        else hud.hideBoss()
+      }
+      // 指南针：主世界显示各地标方位
+      if (dims.active === 'main') {
+        hud.updateCompass(controls.yaw, [
+          { x: POS.TOWER_C.x, z: POS.TOWER_C.z, icon: '🗼', label: '作者之塔' },
+          { x: POS.HUT.x, z: POS.HUT.z, icon: '🏠', label: '作者小岛' },
+          { x: POS.TAME_LAND.x, z: POS.TAME_LAND.z, icon: '🌴', label: '收服大陆' },
+          { x: POS.SEA_PALACE.x, z: POS.SEA_PALACE.z, icon: '🌊', label: '深海' },
+          { x: POS.FORBIDDEN.x, z: POS.FORBIDDEN.z, icon: '💀', label: '禁地' },
+          { x: POS.PORTAL_HELL.x, z: POS.PORTAL_HELL.z, icon: '🔥', label: '地狱门' },
+        ], player.ent.pos)
+      } else {
+        hud.updateCompass(null)
+      }
       quests.setFloor(dims.active === 'arena' ? towerCtrl.currentFloor : 0)
       dayNight.update(dt, dims.active === 'main', camera.position)
       fluids.tick(dt)

@@ -35,6 +35,7 @@ export class HUD {
       </div>
       <div class="quest-card"><div class="quest-title"></div><div class="quest-sub"></div></div>
       <div class="boss-bar"><div class="boss-name"></div><div class="boss-hp"><div class="boss-fill"></div></div></div>
+      <div class="compass"><div class="compass-tick"></div></div>
       <div class="toasts"></div>
       <div class="crosshair"></div>
       <div class="mine-ring"></div>
@@ -191,6 +192,33 @@ export class HUD {
     d.style.top = `${y}px`
     this.el.appendChild(d)
     setTimeout(() => d.remove(), 850)
+  }
+
+  // 指南针：屏幕顶部地标方位条（主世界）。yaw=null 时隐藏
+  updateCompass(yaw, pois, ppos) {
+    const c = this.$('.compass')
+    if (yaw === null || yaw === undefined) { c.style.display = 'none'; return }
+    c.style.display = 'block'
+    if (!this._ci) this._ci = new Map()
+    const fov = 1.35
+    for (const p of pois) {
+      let el = this._ci.get(p.icon)
+      if (!el) {
+        el = document.createElement('div')
+        el.className = 'compass-item'
+        el.innerHTML = `<span class="ci-icon">${p.icon}</span><span class="ci-label">${p.label}</span>`
+        c.appendChild(el)
+        this._ci.set(p.icon, el)
+      }
+      const dx = p.x - ppos.x, dz = p.z - ppos.z
+      let rel = Math.atan2(dx, -dz) - yaw
+      while (rel > Math.PI) rel -= Math.PI * 2
+      while (rel < -Math.PI) rel += Math.PI * 2
+      if (Math.abs(rel) > fov) { el.style.display = 'none'; continue }
+      el.style.display = 'flex'
+      el.style.left = `${50 + (rel / fov) * 46}%`
+      el.style.opacity = Math.hypot(dx, dz) < 40 ? '1' : '0.7'
+    }
   }
 
   setDebug(text) {

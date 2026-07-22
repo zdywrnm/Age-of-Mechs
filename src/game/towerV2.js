@@ -98,8 +98,7 @@ export class TowerV2 {
   // 每帧：清层检查 + boss 血条
   update() {
     if (this.dims.active !== 'arena' || !this.battle) {
-      this.hud.hideBoss()
-      return
+      return   // 塔外的 boss 血条由 main 的世界 boss 逻辑驱动
     }
     if (this.battle.length && this.battle.every(m => m.dead)) {
       const f = this.currentFloor
