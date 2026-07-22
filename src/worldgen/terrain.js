@@ -55,7 +55,7 @@ export function generateTerrain(world) {
       }
 
       // 禁地岛链（世界南界，焦黑）
-      for (const [fx, fz, fr] of [[POS.FORBIDDEN.x, POS.FORBIDDEN.z, 22], [66, 352, 9], [128, 370, 10]]) {
+      for (const [fx, fz, fr] of [[POS.FORBIDDEN.x, POS.FORBIDDEN.z, 22], [74, 462, 9], [136, 470, 10]]) {
         const dF = Math.hypot(x - fx, z - fz)
         if (dF <= fr) {
           const s = dF <= fr - 5 ? 0 : smooth((dF - (fr - 5)) / 5)
@@ -122,7 +122,7 @@ export function generateTerrain(world) {
   // —— 树 ——
   const KEEP_OUT = [
     { x: 80, z: 80, r: 14 }, { x: 32, z: 80, r: 14 }, { x: 128, z: 80, r: 14 },
-    { x: 80, z: 93, r: 6 }, { x: POS.PORTAL_HELL.x, z: POS.PORTAL_HELL.z, r: 8 },
+    { x: POS.SPAWN.x, z: POS.SPAWN.z, r: 6 }, { x: POS.PORTAL_HELL.x, z: POS.PORTAL_HELL.z, r: 8 },
     { x: POS.HUT.x, z: POS.HUT.z, r: 10 },
     { x: POS.JUNGLE_TEMPLE.x, z: POS.JUNGLE_TEMPLE.z, r: 18 },
     { x: POS.UNDERCITY_STAIR.x, z: POS.UNDERCITY_STAIR.z, r: 6 },

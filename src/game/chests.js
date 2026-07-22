@@ -2,18 +2,17 @@
 // 另外三个（森林/烈火/黑暗）是悬浮拾取物（mysteryPickup）
 export class ChestRegistry {
   constructor() {
-    this.chests = new Map()
-    this.opened = new Set()
+    this.chests = new Map()     // "x,y,z" -> { kind }
+    this.opened = new Set()     // 已开的 kind（按种类记录，坐标变了存档也不作废）
     this.onOpen = null
     this.onEmpty = null
   }
   register(pos, kind) { this.chests.set(pos.join(','), { kind }) }
   open(x, y, z) {
-    const key = `${x},${y},${z}`
-    const c = this.chests.get(key)
+    const c = this.chests.get(`${x},${y},${z}`)
     if (!c) { this.onEmpty && this.onEmpty(); return }
-    if (this.opened.has(key)) { this.onEmpty && this.onEmpty(); return }
-    this.opened.add(key)
+    if (this.opened.has(c.kind)) { this.onEmpty && this.onEmpty(); return }
+    this.opened.add(c.kind)
     this.onOpen && this.onOpen(c.kind)
   }
   serialize() { return [...this.opened] }

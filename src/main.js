@@ -26,7 +26,7 @@ import { ChestRegistry, MYSTERY_GEARS } from './game/chests.js'
 import { TowerV2 } from './game/towerV2.js'
 import { PortalSystem } from './game/portals.js'
 import { DayNight } from './game/dayNight.js'
-import { saveGame, loadGame, migrateV1 } from './game/save.js'
+import { saveGame, loadGame, migrateV1, migrateV2 } from './game/save.js'
 import { HUD } from './ui/hud.js'
 import { Dialog } from './ui/dialog.js'
 import { showStartScreen } from './ui/customize.js'
@@ -95,7 +95,7 @@ showStartScreen(config => boot(config))
 async function boot(newConfig) {
   const loading = new LoadingUI()
   await tick()
-  const save = newConfig ? null : (loadGame() || migrateV1())
+  const save = newConfig ? null : (loadGame() || migrateV2() || migrateV1())
   const robotConfig = newConfig || save.robotConfig
 
   loading.set(0.05, '正在创造大陆与海洋……')
@@ -329,10 +329,10 @@ function startGame(robotConfig, save) {
   // 环境刷怪池（主世界）
   monsters.poolsEnabled = true
   monsters.spawnPools = [
-    { tag: 'plains', points: [[62, 100], [98, 102], [60, 62], [102, 60]], types: ['spider', 'brute'], max: CFG.PLAINS_MAX, interval: CFG.PLAINS_SPAWN_INTERVAL, timer: 5, floor: 1, intervalMult: () => dayNight.isNight() ? 0.4 : 1 },
-    { tag: 'ocean', points: [[150, 98, 260], [180, 97, 300], [240, 96, 300], [140, 98, 200], [230, 97, 240]], types: ['shark', 'octopus', 'fish', 'crab'], max: 5, interval: 15, timer: 8, floor: 3 },
-    { tag: 'sky', points: [[100, 132, 150], [200, 135, 180], [150, 130, 120], [120, 132, 220]], types: ['bird', 'angel'], max: 3, interval: 25, timer: 12, floor: 3 },
-    { tag: 'tame', points: [[250, 150], [300, 195], [280, 205], [310, 165], [260, 190]], types: ['brute', 'spider', 'crab', 'archer'], max: 4, interval: 18, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
+    { tag: 'plains', points: [[110, 148], [146, 150], [108, 110], [150, 108]], types: ['spider', 'brute'], max: CFG.PLAINS_MAX, interval: CFG.PLAINS_SPAWN_INTERVAL, timer: 5, floor: 1, intervalMult: () => dayNight.isNight() ? 0.4 : 1 },
+    { tag: 'ocean', points: [[240, 98, 300], [200, 97, 360], [340, 96, 340], [220, 98, 250], [420, 97, 320]], types: ['shark', 'octopus', 'fish', 'crab'], max: 5, interval: 15, timer: 8, floor: 3 },
+    { tag: 'sky', points: [[148, 132, 198], [300, 135, 240], [396, 130, 180], [128, 132, 300]], types: ['bird', 'angel'], max: 3, interval: 25, timer: 12, floor: 3 },
+    { tag: 'tame', points: [[366, 180], [420, 215], [396, 230], [430, 185], [370, 220]], types: ['brute', 'spider', 'crab', 'archer'], max: 4, interval: 18, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
   ]
   // 池子只在主世界生效
   const origPoolsUpdate = monsters.update.bind(monsters)

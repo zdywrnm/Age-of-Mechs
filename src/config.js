@@ -1,12 +1,12 @@
 // 全局常量配置 —— 所有可调数值集中在这里
 export const CFG = {
-  // 主世界尺寸（v2：384² 大世界，初始城镇岛原坐标不动）
-  SX: 384, SY: 200, SZ: 384,
+  // 主世界尺寸（v3：512² 大世界，各岛拉开 120+ 格海面）
+  SX: 512, SY: 200, SZ: 512,
   CHUNK: 16,
   SEED: 20260722,
-  SURFACE: 112,                 // 初始城镇岛地表高度
-  SEA_LEVEL: 101,               // 海面高度（真实水体）
-  ISLAND_CX: 80, ISLAND_CZ: 80, // 初始城镇岛心
+  SURFACE: 112,                   // 初始城镇岛地表高度
+  SEA_LEVEL: 101,                 // 海面高度（真实水体）
+  ISLAND_CX: 128, ISLAND_CZ: 128, // 初始城镇岛心
   ISLAND_R_FULL: 58,
   ISLAND_R_EDGE: 72,
 
@@ -88,48 +88,50 @@ export const CFG = {
   DRAGON_HP: 250000, DRAGON_ATK: 60,
 
   // 存档
-  SAVE_KEY: 'qiqi_save_v2',
+  SAVE_KEY: 'qiqi_save_v3',
+  SAVE_KEY_V2: 'qiqi_save_v2',
   SAVE_KEY_V1: 'qiqi_save_v1',
   AUTOSAVE_INTERVAL: 5,
 }
 
 // 维度定义
 export const DIMS = {
-  main:  { sx: 384, sy: 200, sz: 384 },
+  main:  { sx: 512, sy: 200, sz: 512 },
   hell:  { sx: 192, sy: 96,  sz: 192 },
   void:  { sx: 128, sy: 80,  sz: 128 },
   arena: { sx: 48,  sy: 32,  sz: 48 },
 }
 
 // 关键坐标（结构生成与任务共同引用）
+// v3 布局：初始城镇整体平移到 (128,128)，各大陆两两之间 120+ 格开阔海面
 export const POS = {
-  // —— 初始城镇岛（第一章，原坐标不动）——
-  TOWER_C: { x: 80, z: 80 },
-  SPAWN: { x: 80.5, z: 93.5 },
-  THRONE: { x: 80, z: 80 },
-  GOLD_TILE: { x: 80, z: 82 },
-  NPC: { x: 77.5, z: 80.5 },
-  HENGE_C: { x: 128, z: 80 },
-  SPAWNER_C: { x: 32, z: 80 },
+  // —— 初始城镇岛（第一章结构随岛心整体平移 +48,+48）——
+  TOWER_C: { x: 128, z: 128 },
+  SPAWN: { x: 128.5, z: 141.5 },
+  THRONE: { x: 128, z: 128 },
+  GOLD_TILE: { x: 128, z: 130 },
+  NPC: { x: 125.5, z: 128.5 },
+  HENGE_C: { x: 176, z: 128 },
+  SPAWNER_C: { x: 80, z: 128 },
   ORE_ROOM_DEPTH: 100,
   EARTH_PLANK_DEPTH: 100,
 
   // —— 第二章主世界 ——
-  PORTAL_HELL: { x: 80, z: 146 },          // 暗黑地狱传送门（城镇南滩）
-  AUTHOR_ISLE: { x: 96, z: 240, r: 26 },   // 作者小岛
-  HUT: { x: 96, z: 240 },                  // 木屋神殿②（商店）
-  TAME_LAND: { x: 280, z: 176, rx: 86, rz: 78 }, // 收服大陆（椭圆）
-  JUNGLE_TEMPLE: { x: 280, z: 176 },       // 丛林神殿（终极之地传送门）
-  DEEP_SEA: { x: 208, z: 312, r: 60 },     // 深海盆地
-  SEA_PALACE: { x: 208, z: 312 },          // 海底宫殿（潮涌 boss）
-  KUNPENG_AIR: { x: 208, y: 150, z: 312 }, // 鲲鹏空域
-  FORBIDDEN: { x: 96, z: 362 },            // 禁地中心
-  FORBIDDEN_CHEST: { x: 112, z: 368 },     // 神秘齿轮宝箱（禁地周围、巡逻圈外）
-  UNDERCITY: { x: 120, y: 18, z: 120 },    // 地下之城地板
-  CORE: { x: 120, z: 120 },                // 驱动核心
-  SHRINE3: { x: 132, z: 120 },             // 作者神殿③
-  LIGHT_CHEST: { x: 125, z: 116 },         // 光明齿轮箱（驱动核心边缘）
-  UNDERCITY_STAIR: { x: 104, z: 104 },     // 地面→地下之城竖井入口
+  PORTAL_HELL: { x: 128, z: 194 },         // 暗黑地狱传送门（城镇南滩）
+  AUTHOR_ISLE: { x: 96, z: 392, r: 26 },   // 作者小岛（城镇以南远海）
+  HUT: { x: 96, z: 392 },                  // 木屋神殿②（商店）
+  TAME_LAND: { x: 396, z: 200, rx: 80, rz: 78 }, // 收服大陆（东方远陆）
+  JUNGLE_TEMPLE: { x: 396, z: 200 },       // 丛林神殿（终极之地传送门）
+  DEEP_SEA: { x: 312, z: 424, r: 60 },     // 深海盆地（东南远洋）
+  SEA_PALACE: { x: 312, z: 424 },          // 海底宫殿（潮涌 boss）
+  KUNPENG_AIR: { x: 312, y: 150, z: 424 }, // 鲲鹏空域
+  FORBIDDEN: { x: 104, z: 480 },           // 禁地中心（作者小岛再往南——设定原文）
+  FORBIDDEN_CHEST: { x: 118, z: 486 },     // 神秘齿轮宝箱（禁地周围、巡逻圈外）
+  UNDERCITY: { x: 168, y: 18, z: 168 },    // 地下之城地板
+  CORE: { x: 168, z: 168 },                // 驱动核心
+  SHRINE3: { x: 180, z: 168 },             // 作者神殿③
+  LIGHT_CHEST: { x: 173, z: 164 },         // 光明齿轮箱（驱动核心边缘）
+  UNDERCITY_STAIR: { x: 152, z: 152 },     // 地面→地下之城竖井入口
 
   // —— 暗黑地狱 ——
   HELL_SPAWN: { x: 30, z: 96 },            // 地狱入口平台
