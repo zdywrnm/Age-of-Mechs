@@ -399,6 +399,19 @@ export class MonsterManager {
       const velSp = Math.hypot(m.ent.vel.x, m.ent.vel.z)
       if (m.state === 'chase' && !m.def.swoop && distH > 0.1) m.group.rotation.y = Math.atan2(-dx, -dz) + Math.PI
       else if (velSp > 0.5) m.group.rotation.y = Math.atan2(-m.ent.vel.x, -m.ent.vel.z) + Math.PI
+
+      // —— 肢体动画 + 通用步态 ——
+      m.animPh = (m.animPh || 0) + dt * (1 + Math.min(3, velSp * 0.5))
+      if (m.def.animate) m.def.animate(m, m.animPh, dt)
+      if (!m.ent.noGravity && m.fuseT < 0) {
+        // 地面怪走路：上下颠 + 轻微左右摇
+        const bob = velSp > 0.5 ? Math.abs(Math.sin(m.animPh * 4)) * 0.07 : 0
+        m.group.position.y = m.ent.pos.y + bob
+        m.group.rotation.z = velSp > 0.5 ? Math.sin(m.animPh * 4) * 0.045 : 0
+      } else if (m.ent.noGravity) {
+        // 飞行/水生怪：悬浮起伏
+        m.group.position.y = m.ent.pos.y + Math.sin(m.animPh * 1.8) * 0.08
+      }
       if (m.hurtT > 0) m.group.traverse(o => { if (o.isMesh && o.material.emissive) o.material.emissive.setRGB(0.6, 0, 0) })
       else if (m.fuseT < 0) m.group.traverse(o => { if (o.isMesh && o.material.emissive) o.material.emissive.setScalar(0) })
     }

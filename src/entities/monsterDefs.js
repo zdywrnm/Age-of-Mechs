@@ -17,10 +17,13 @@ function buildSpider(scale = 1) {
   const g = new THREE.Group()
   g.add(box(0.7, 0.28, 0.9, '#181818', 0, 0.32, 0))
   g.add(box(0.4, 0.22, 0.4, '#232323', 0, 0.5, -0.3))
+  g.userData.legs = []
   for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
     const leg = box(0.08, 0.3, 0.08, '#101010', side * 0.42, 0.16, -0.3 + i * 0.22)
     leg.rotation.z = side * 0.5
+    leg.userData.baseZ = side * 0.5
     g.add(leg)
+    g.userData.legs.push(leg)
   }
   eye(g, '#ff3030', 0.07, 0.07, -0.1, 0.52, -0.5); eye(g, '#ff3030', 0.07, 0.07, 0.1, 0.52, -0.5)
   g.scale.setScalar(scale); return g
@@ -63,11 +66,14 @@ function buildShark(scale = 1) {
 function buildOctopus(scale = 1) {
   const g = new THREE.Group()
   g.add(box(0.7, 0.6, 0.7, '#7a4a9e', 0, 0.7, 0))
+  g.userData.tentacles = []
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2
     const t = box(0.12, 0.5, 0.12, '#653a85', Math.cos(a) * 0.28, 0.22, Math.sin(a) * 0.28)
     t.rotation.x = Math.sin(a) * 0.3; t.rotation.z = -Math.cos(a) * 0.3
+    t.userData.baseX = t.rotation.x; t.userData.baseZ = t.rotation.z
     g.add(t)
+    g.userData.tentacles.push(t)
   }
   eye(g, '#f5f0e0', 0.16, 0.18, -0.18, 0.78, -0.36); eye(g, '#f5f0e0', 0.16, 0.18, 0.18, 0.78, -0.36)
   eye(g, '#101010', 0.07, 0.09, -0.18, 0.76, -0.38); eye(g, '#101010', 0.07, 0.09, 0.18, 0.76, -0.38)
@@ -83,16 +89,34 @@ function buildFish(scale = 1) {
 function buildCrab(scale = 1) {
   const g = new THREE.Group()
   g.add(box(1.1, 0.4, 0.8, '#c0453a', 0, 0.42, 0))
+  g.userData.legs = []
   for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
-    g.add(box(0.09, 0.3, 0.09, '#8f3020', side * 0.62, 0.16, -0.25 + i * 0.25))
+    const leg = box(0.09, 0.3, 0.09, '#8f3020', side * 0.62, 0.16, -0.25 + i * 0.25)
+    leg.userData.baseZ = 0
+    g.add(leg); g.userData.legs.push(leg)
   }
-  g.add(box(0.34, 0.26, 0.3, '#d55548', -0.6, 0.55, -0.4))  // 左钳
-  g.add(box(0.34, 0.26, 0.3, '#d55548', 0.6, 0.55, -0.4))   // 右钳
+  const clawL = box(0.34, 0.26, 0.3, '#d55548', -0.6, 0.55, -0.4)
+  const clawR = box(0.34, 0.26, 0.3, '#d55548', 0.6, 0.55, -0.4)
+  g.add(clawL, clawR)
+  g.userData.claws = [clawL, clawR]
   eye(g, '#101010', 0.07, 0.1, -0.16, 0.72, -0.36); eye(g, '#101010', 0.07, 0.1, 0.16, 0.72, -0.36)
   g.scale.setScalar(scale); return g
 }
 
 // —— 天空 ——
+// 翼组辅助：pivot 在翼根，内容盒向外伸
+function wingPair(g, y, z, len, thick, depth, color) {
+  const mk = side => {
+    const p = new THREE.Group(); p.position.set(side * 0.2, y, z)
+    p.add(box(len, thick, depth, color, side * len / 2, 0, 0))
+    return p
+  }
+  const L = mk(-1), R = mk(1)
+  g.add(L, R)
+  g.userData.wings = [L, R]
+  return [L, R]
+}
+
 function buildAngel(scale = 1) {
   const g = new THREE.Group()
   g.add(box(0.44, 0.7, 0.3, '#f4f6f7', 0, 0.7, 0))         // 白袍
@@ -100,8 +124,7 @@ function buildAngel(scale = 1) {
   const haloM = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.42),
     new THREE.MeshBasicMaterial({ color: '#ffd75e' }))
   haloM.position.set(0, 1.58, 0); g.add(haloM)
-  g.add(box(0.08, 0.5, 0.7, '#ffffff', -0.34, 0.95, 0.15))  // 翼
-  g.add(box(0.08, 0.5, 0.7, '#ffffff', 0.34, 0.95, 0.15))
+  wingPair(g, 1.0, 0.16, 0.55, 0.08, 0.65, '#ffffff')
   eye(g, '#3a78c8', 0.06, 0.07, -0.08, 1.3, -0.17); eye(g, '#3a78c8', 0.06, 0.07, 0.08, 1.3, -0.17)
   g.scale.setScalar(scale); return g
 }
@@ -111,8 +134,7 @@ function buildBird(scale = 1) {
   g.add(box(0.22, 0.22, 0.22, '#7a5538', 0, 0.62, -0.3))
   g.add(box(0.08, 0.08, 0.2, '#f0b429', 0, 0.6, -0.5))      // 尖喙
   g.add(box(0.06, 0.06, 0.3, '#6d4a30', 0, 0.42, 0.4))      // 尾
-  g.add(box(0.5, 0.06, 0.3, '#966c4b', -0.35, 0.52, 0))     // 翼
-  g.add(box(0.5, 0.06, 0.3, '#966c4b', 0.35, 0.52, 0))
+  wingPair(g, 0.52, 0, 0.5, 0.06, 0.32, '#966c4b')
   eye(g, '#101010', 0.05, 0.05, -0.07, 0.66, -0.4); eye(g, '#101010', 0.05, 0.05, 0.07, 0.66, -0.4)
   g.scale.setScalar(scale); return g
 }
@@ -140,8 +162,7 @@ function buildDragon(scale = 1) {
   g.add(box(0.3, 0.14, 0.4, '#8f3020', 0, 0.78, -0.95))      // 吻
   g.add(box(0.08, 0.3, 0.08, '#2b1414', -0.16, 1.24, -0.5))  // 角
   g.add(box(0.08, 0.3, 0.08, '#2b1414', 0.16, 1.24, -0.5))
-  g.add(box(1.6, 0.08, 0.8, '#4a1a1a', -1.0, 1.1, 0.3))      // 大翼
-  g.add(box(1.6, 0.08, 0.8, '#4a1a1a', 1.0, 1.1, 0.3))
+  wingPair(g, 1.1, 0.3, 1.6, 0.08, 0.8, '#4a1a1a')           // 大翼（可扇动）
   eye(g, '#ffb020', 0.09, 0.09, -0.14, 1.0, -0.83); eye(g, '#ffb020', 0.09, 0.09, 0.14, 1.0, -0.83)
   g.scale.setScalar(scale); return g
 }
@@ -195,27 +216,113 @@ function buildSeaGuardian(scale = 3.2) {
   // 眼睛长在铠甲旁边（壳缘两侧大眼）
   eye(g, '#f5f0e0', 0.22, 0.26, -0.34, 1.15, -0.42); eye(g, '#f5f0e0', 0.22, 0.26, 0.34, 1.15, -0.42)
   eye(g, '#101010', 0.1, 0.12, -0.34, 1.13, -0.45); eye(g, '#101010', 0.1, 0.12, 0.34, 1.13, -0.45)
-  // 下半身鱿鱼触手 ×8
+  // 下半身鱿鱼触手 ×8（可摆动）
+  g.userData.tentacles = []
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2
     const t = box(0.1, 0.7, 0.1, '#a06a8a', Math.cos(a) * 0.3, 0.28, 0.1 + Math.sin(a) * 0.3)
     t.rotation.x = Math.sin(a) * 0.25; t.rotation.z = -Math.cos(a) * 0.25
+    t.userData.baseX = t.rotation.x; t.userData.baseZ = t.rotation.z
     g.add(t)
+    g.userData.tentacles.push(t)
   }
   g.scale.setScalar(scale); return g
 }
 
-// —— 鲲鹏（鲸形巨身+超宽双翼，海空融合）——
+// ============ 动画钩子（monsters.update 每帧调 def.animate(m, ph, dt)）============
+function flapWings(m, ph) {
+  const w = m.group.userData.wings
+  if (!w) return
+  const speed = Math.hypot(m.ent.vel.x, m.ent.vel.z) + Math.abs(m.ent.vel.y)
+  const amp = 0.3 + Math.min(0.45, speed * 0.06)
+  const a = Math.sin(ph * 6) * amp
+  w[0].rotation.z = -a - 0.1
+  w[1].rotation.z = a + 0.1
+}
+// 鲲鹏：扇翅 + 三节翼随扇动波浪展开；俯冲时后掠折翼
+function kunpengWings(m, ph) {
+  const u = m.group.userData
+  if (!u.wings) return
+  const diving = m.swoopPhase === 'dive'
+  const a = diving ? 0.9 : Math.sin(ph * (m.swoopPhase ? 5 : 3)) * 0.45
+  u.wings[0].rotation.z = -a - 0.06
+  u.wings[1].rotation.z = a + 0.06
+  for (const [si, segs] of [[0, u.wingSegs[0]], [1, u.wingSegs[1]]]) {
+    const sgn = si === 0 ? 1 : -1
+    segs.forEach((seg, i) => {
+      if (i === 0) return
+      const lag = Math.sin(ph * (m.swoopPhase ? 5 : 3) - i * 0.7) * 0.3
+      seg.rotation.z = sgn * (diving ? 0.7 : lag)
+      seg.rotation.y = diving ? sgn * 0.5 : 0
+    })
+  }
+}
+function waveTentacles(m, ph) {
+  const ts = m.group.userData.tentacles
+  if (!ts) return
+  ts.forEach((t, i) => {
+    t.rotation.x = t.userData.baseX + Math.sin(ph * 2.4 + i * 0.9) * 0.28
+    t.rotation.z = t.userData.baseZ + Math.cos(ph * 2.1 + i * 1.2) * 0.22
+  })
+}
+function skitterLegs(m, ph) {
+  const legs = m.group.userData.legs
+  if (!legs) return
+  const speed = Math.hypot(m.ent.vel.x, m.ent.vel.z)
+  const amp = speed > 0.3 ? 0.4 : 0.06
+  legs.forEach((leg, i) => {
+    leg.rotation.x = Math.sin(ph * 9 + i * 1.6) * amp
+    if (leg.userData.baseZ !== undefined) leg.rotation.z = leg.userData.baseZ
+  })
+}
+function crabWave(m, ph) {
+  skitterLegs(m, ph)
+  const claws = m.group.userData.claws
+  if (!claws) return
+  claws[0].rotation.x = Math.sin(ph * 3) * 0.25 - 0.1
+  claws[1].rotation.x = Math.sin(ph * 3 + Math.PI) * 0.25 - 0.1
+}
+
+// —— 鲲鹏 v2（鲸形巨身 + 三节可折巨翼 + 羽层色带 + 尾羽扇）——
 function buildKunpeng(scale = 4) {
   const g = new THREE.Group()
-  g.add(box(0.7, 0.6, 1.8, '#1e3a5c', 0, 0.7, 0))            // 鲸形巨身
-  g.add(box(0.6, 0.5, 0.6, '#16304e', 0, 0.72, -1.1))        // 头
-  g.add(box(0.5, 0.3, 0.5, '#e8eef2', 0, 0.45, -0.4))        // 白腹
-  g.add(box(2.4, 0.1, 1.0, '#2a4a70', -1.5, 0.95, 0.1))      // 左巨翼
-  g.add(box(2.4, 0.1, 1.0, '#2a4a70', 1.5, 0.95, 0.1))       // 右巨翼
-  g.add(box(0.1, 0.5, 0.55, '#16304e', 0, 0.85, 1.0))        // 燕尾上
-  g.add(box(0.55, 0.5, 0.1, '#16304e', 0, 0.4, 1.05))        // 燕尾下
-  eye(g, '#7dfcff', 0.12, 0.12, -0.22, 0.85, -1.38); eye(g, '#7dfcff', 0.12, 0.12, 0.22, 0.85, -1.38)
+  // 鲸形巨身（三段渐细）
+  g.add(box(0.74, 0.62, 1.0, '#1e3a5c', 0, 0.72, -0.3))
+  g.add(box(0.64, 0.54, 0.8, '#224064', 0, 0.7, 0.5))
+  g.add(box(0.5, 0.42, 0.6, '#16304e', 0, 0.68, 1.1))
+  g.add(box(0.62, 0.52, 0.62, '#16304e', 0, 0.74, -1.05))    // 头
+  g.add(box(0.3, 0.16, 0.5, '#0f2540', 0, 0.6, -1.4))        // 喙
+  g.add(box(0.54, 0.3, 1.3, '#e8eef2', 0, 0.44, -0.2))       // 白腹
+  g.add(box(0.2, 0.12, 0.5, '#2a4a70', 0, 1.06, -0.7))       // 头冠羽
+  // 三节可折巨翼（pivot 在翼根；内节→外节逐段收窄，羽层双色带）
+  g.userData.wings = []
+  g.userData.wingSegs = [[], []]
+  for (const side of [-1, 1]) {
+    const pivot = new THREE.Group(); pivot.position.set(side * 0.36, 0.94, -0.1)
+    let px2 = 0
+    const segs = [[1.1, 1.0, '#2a4a70'], [0.95, 0.85, '#3a5d85'], [0.8, 0.7, '#4a739e']]
+    const segList = []
+    let parent = pivot
+    for (const [len, depth, color] of segs) {
+      const seg = new THREE.Group(); seg.position.set(side * px2, 0, 0)
+      seg.add(box(len, 0.1, depth, color, side * len / 2, 0, 0))
+      seg.add(box(len, 0.06, 0.24, '#e8eef2', side * len / 2, -0.02, depth / 2 + 0.1)) // 羽缘白带
+      parent.add(seg)
+      segList.push(seg)
+      parent = seg
+      px2 = len
+    }
+    g.add(pivot)
+    g.userData.wings.push(pivot)
+    g.userData.wingSegs[side < 0 ? 0 : 1] = segList
+  }
+  // 尾羽扇（三片斜张）
+  for (const [rot, len] of [[-0.4, 0.7], [0, 0.85], [0.4, 0.7]]) {
+    const tail = box(0.16, 0.06, len, '#2a4a70', 0, 0.7, 1.5 + len / 2 - 0.2)
+    tail.rotation.y = rot
+    g.add(tail)
+  }
+  eye(g, '#7dfcff', 0.13, 0.13, -0.24, 0.86, -1.34); eye(g, '#7dfcff', 0.13, 0.13, 0.24, 0.86, -1.34)
   g.scale.setScalar(scale); return g
 }
 
@@ -241,26 +348,26 @@ function buildForbiddenGolem(scale = 2.2) {
 // ============ 定义表 ============
 export const MONSTER_DEFS = {
   // 第一章
-  spider: { name: '自爆黑蛛', tags: ['爆炸类', '邪恶类', '无脊椎类'], w: 0.9, h: 0.6, speed: 2.9, build: buildSpider, exploder: true, medium: 'ground' },
+  spider: { name: '自爆黑蛛', tags: ['爆炸类', '邪恶类', '无脊椎类'], w: 0.9, h: 0.6, speed: 2.9, build: buildSpider, exploder: true, medium: 'ground', animate: skitterLegs },
   brute:  { name: '石壳斗士', tags: ['邪恶类', '有脊椎类'], w: 0.8, h: 1.6, speed: 2.2, build: buildBrute, melee: true, medium: 'ground' },
   archer: { name: '白骨射手', tags: ['远程攻击类', '邪恶类', '有脊椎类'], w: 0.6, h: 1.7, speed: 2.2, build: buildArcher, ranged: true, medium: 'ground' },
   // 海洋
   shark:   { name: '铁齿鲨', tags: ['鲨鱼类', '有脊椎类'], w: 0.7, h: 0.9, speed: 4.2, build: buildShark, melee: true, medium: 'water' },
-  octopus: { name: '墨影章鱼', tags: ['章鱼类', '无脊椎类'], w: 0.8, h: 1.0, speed: 2.4, build: buildOctopus, ranged: true, medium: 'water', projColor: '#1a1030' },
+  octopus: { name: '墨影章鱼', tags: ['章鱼类', '无脊椎类'], w: 0.8, h: 1.0, speed: 2.4, build: buildOctopus, ranged: true, medium: 'water', projColor: '#1a1030', animate: waveTentacles },
   fish:    { name: '小银鱼', tags: ['普通鱼类'], w: 0.3, h: 0.35, speed: 2.0, build: buildFish, passive: true, medium: 'water', dropItem: 'seafood' },
-  crab:    { name: '岩壳蟹', tags: ['蟹类', '无脊椎类'], w: 1.1, h: 0.8, speed: 2.0, build: buildCrab, melee: true, medium: 'ground', tough: 0.7, mountable: true },
+  crab:    { name: '岩壳蟹', tags: ['蟹类', '无脊椎类'], w: 1.1, h: 0.8, speed: 2.0, build: buildCrab, melee: true, medium: 'ground', tough: 0.7, mountable: true, animate: crabWave },
   // 天空
-  angel: { name: '云端天使', tags: ['天使类', '正义类'], w: 0.6, h: 1.7, speed: 3.4, build: buildAngel, melee: true, medium: 'air', passive: true, dropItem: 'feather' },
-  bird:  { name: '啄风鸟', tags: ['鸟类'], w: 0.5, h: 0.7, speed: 4.0, build: buildBird, melee: true, medium: 'air' },
+  angel: { name: '云端天使', tags: ['天使类', '正义类'], w: 0.6, h: 1.7, speed: 3.4, build: buildAngel, melee: true, medium: 'air', passive: true, dropItem: 'feather', animate: flapWings },
+  bird:  { name: '啄风鸟', tags: ['鸟类'], w: 0.5, h: 0.7, speed: 4.0, build: buildBird, melee: true, medium: 'air', animate: flapWings },
   // 地狱
   demon:  { name: '恶魔', tags: ['邪恶类', '有脊椎类'], w: 0.8, h: 1.7, speed: 2.6, build: buildDemon, melee: true, medium: 'ground', maybeRanged: 0.3, projColor: '#ff7a1a' },
-  dragon: { name: '恶龙', tags: ['邪恶类', '有脊椎类', '远程攻击类'], w: 1.6, h: 1.6, speed: 3.6, build: () => buildDragon(1.6), ranged: true, medium: 'air', projColor: '#ff7a1a' },
+  dragon: { name: '恶龙', tags: ['邪恶类', '有脊椎类', '远程攻击类'], w: 1.6, h: 1.6, speed: 3.6, build: () => buildDragon(1.6), ranged: true, medium: 'air', projColor: '#ff7a1a', animate: flapWings },
   // 终极之地
   runeguard:  { name: '符文守卫', tags: ['邪恶类', '远程攻击类'], w: 0.8, h: 1.8, speed: 2.4, build: buildRuneGuard, ranged: true, medium: 'ground', projColor: '#7dfcff' },
   shadowking: { name: '暗影君王', tags: ['邪恶类', '有脊椎类', '远程攻击类'], w: 1.1, h: 2.4, speed: 2.8, build: buildShadowKing, ranged: true, melee: true, medium: 'ground', projColor: '#c084ff' },
   // 大 boss
-  seaguardian: { name: '海底守卫者', tags: ['鲨鱼类', '章鱼类', '无脊椎类'], w: 2.4, h: 3.4, speed: 3.0, build: buildSeaGuardian, melee: true, radial: true, medium: 'water', projColor: '#f2e8d8' },
-  kunpeng:     { name: '鲲鹏', tags: ['鸟类', '鲨鱼类', '正义类'], w: 3.4, h: 2.6, speed: 5.0, build: buildKunpeng, ranged: true, melee: true, swoop: true, medium: 'air', projColor: '#7dd8ff' },
+  seaguardian: { name: '海底守卫者', tags: ['鲨鱼类', '章鱼类', '无脊椎类'], w: 2.4, h: 3.4, speed: 3.0, build: buildSeaGuardian, melee: true, radial: true, medium: 'water', projColor: '#f2e8d8', animate: waveTentacles },
+  kunpeng:     { name: '鲲鹏', tags: ['鸟类', '鲨鱼类', '正义类'], w: 3.4, h: 2.6, speed: 5.0, build: buildKunpeng, ranged: true, melee: true, swoop: true, medium: 'air', projColor: '#7dd8ff', animate: kunpengWings },
   forbiddengolem: { name: '禁地守卫', tags: ['爆炸类', '远程攻击类', '邪恶类', '有脊椎类'], w: 1.8, h: 2.6, speed: 2.2, build: buildForbiddenGolem, ranged: true, radial: true, medium: 'ground', projColor: '#ff5030' },
-  helldragon:  { name: '地狱魔龙', tags: ['邪恶类', '有脊椎类', '远程攻击类', '爆炸类'], w: 3.2, h: 3.2, speed: 4.0, build: () => buildDragon(3.2), ranged: true, melee: true, medium: 'air', projColor: '#ff3010' },
+  helldragon:  { name: '地狱魔龙', tags: ['邪恶类', '有脊椎类', '远程攻击类', '爆炸类'], w: 3.2, h: 3.2, speed: 4.0, build: () => buildDragon(3.2), ranged: true, melee: true, medium: 'air', projColor: '#ff3010', animate: flapWings },
 }
