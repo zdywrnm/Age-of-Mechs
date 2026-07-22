@@ -13,6 +13,27 @@ const FACES = [
   { n: [0, 0, -1], c: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], shade: 0.7,  side: 'side' },
 ]
 
+// 经典体素顶点 AO：0（最暗，两侧被挡）~ 3（全亮）
+const AO_LEVELS = [0.5, 0.68, 0.84, 1.0]
+function vertexAO(world, bx, by, bz, n, corner) {
+  // 面外一层的基准格
+  const px = bx + n[0], py = by + n[1], pz = bz + n[2]
+  // 该角点在面平面内的两个切向（法线为 0 的两个轴，方向由角点坐标决定）
+  let t1 = null, t2 = null
+  for (let a = 0; a < 3; a++) {
+    if (n[a] !== 0) continue
+    const dir = corner[a] === 1 ? 1 : -1
+    const v = [0, 0, 0]; v[a] = dir
+    if (!t1) t1 = v; else t2 = v
+  }
+  const solid = (dx, dy, dz) => isOpaque(world.get(px + dx, py + dy, pz + dz)) ? 1 : 0
+  const s1 = solid(t1[0], t1[1], t1[2])
+  const s2 = solid(t2[0], t2[1], t2[2])
+  if (s1 && s2) return 0
+  const c = solid(t1[0] + t2[0], t1[1] + t2[1], t1[2] + t2[2])
+  return 3 - (s1 + s2 + c)
+}
+
 function makeGeo(positions, normals, colors, uvs, indices) {
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
@@ -81,18 +102,24 @@ export class ChunkManager {
                 if (face.n[1] !== 0) pass.uvs.push(wx * 0.22, wz * 0.22)
                 else pass.uvs.push((wx + wz) * 0.22, wy * 0.22)
               }
+              pass.indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
             } else {
               const { u0, v0, u1, v1 } = this.atlas.uvRect(def.tiles[face.side])
               const faceUV = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]]
+              const ao = []
               for (let i = 0; i < 4; i++) {
                 const [ox, oy, oz] = face.c[i]
+                ao[i] = vertexAO(world, x, y, z, face.n, face.c[i])
+                const v = s * AO_LEVELS[ao[i]]
                 pass.positions.push(x + ox, y + oy, z + oz)
                 pass.normals.push(face.n[0], face.n[1], face.n[2])
-                pass.colors.push(s, s, s)
+                pass.colors.push(v, v, v)
                 pass.uvs.push(faceUV[i][0], faceUV[i][1])
               }
+              // AO 各向异性：按明暗选择四边形对角线方向
+              if (ao[0] + ao[2] > ao[1] + ao[3]) pass.indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+              else pass.indices.push(base + 1, base + 2, base + 3, base + 1, base + 3, base)
             }
-            pass.indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
           }
         }
       }
@@ -124,7 +151,20 @@ export class ChunkManager {
       this.group.add(entry.fire)
     }
     if (!entry.solid && !entry.water && !entry.fire) this.meshes.delete(key)
-    else this.meshes.set(key, entry)
+    else { entry.cx = cx; entry.cz = cz; this.meshes.set(key, entry) }
+  }
+
+  // 渲染距离：超过 maxDist 的 chunk 整体隐藏（大地图控 draw call）
+  updateVisibility(px, pz, maxDist) {
+    const C = CFG.CHUNK
+    for (const e of this.meshes.values()) {
+      const dx = (e.cx + 0.5) * C - px
+      const dz = (e.cz + 0.5) * C - pz
+      const vis = dx * dx + dz * dz < maxDist * maxDist
+      if (e.solid) e.solid.visible = vis
+      if (e.water) e.water.visible = vis
+      if (e.fire) e.fire.visible = vis
+    }
   }
 
   *buildAllIterator() {

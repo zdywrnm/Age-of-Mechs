@@ -12,6 +12,7 @@ export const CFG = {
 
   // 渲染
   FOG_NEAR: 120, FOG_FAR: 230,
+  RENDER_DIST: 176,             // chunk 显隐距离（配合雾遮住边界）
   SKY_COLOR: 0x87c9f0,
   MESH_BUDGET_PER_FRAME: 2,
   LOAD_CHUNKS_PER_FRAME: 8,

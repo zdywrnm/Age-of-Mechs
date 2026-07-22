@@ -39,7 +39,7 @@ const DEBUG = new URLSearchParams(location.search).has('debug')
 
 // ============ 渲染基础 ============
 const app = document.getElementById('app')
-const renderer = new THREE.WebGLRenderer({ antialias: false })
+const renderer = new THREE.WebGLRenderer({ antialias: true })
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
 renderer.setSize(innerWidth, innerHeight)
 app.appendChild(renderer.domElement)
@@ -707,7 +707,7 @@ function startGame(robotConfig, save) {
       portals.update(dt)
       towerCtrl.update()
       quests.setFloor(dims.active === 'arena' ? towerCtrl.currentFloor : 0)
-      dayNight.update(dt, dims.active === 'main')
+      dayNight.update(dt, dims.active === 'main', camera.position)
       fluids.tick(dt)
       // 海面流动动画（纹理滚动 + 轻微呼吸）
       atlas.waterTexture.offset.x = (now * 0.000020) % 1
@@ -733,6 +733,7 @@ function startGame(robotConfig, save) {
     }
 
     ctx.chunks && ctx.chunks.update()
+    ctx.chunks && ctx.chunks.updateVisibility(camera.position.x, camera.position.z, CFG.RENDER_DIST)
     controls.updateCamera(camera, ctx.world, player.headPos())
     player.model.group.visible = (controls.camDist ?? CFG.CAM_DIST) > 1.2
 

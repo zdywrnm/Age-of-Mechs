@@ -1,6 +1,6 @@
 // 程序化纹理图集：一张 512×512 Canvas，8×8 个 64px tile，无任何外部美术资源
 import * as THREE from 'three'
-import { mulberry32 } from './noise.js'
+import { mulberry32, makeFbm2D } from './noise.js'
 
 export const TILE = 64
 export const ATLAS_TILES = 8 // 8×8
@@ -42,18 +42,40 @@ export function createAtlas() {
     }
     ctx.save(); ctx.beginPath(); ctx.rect(x, y, TILE, TILE); ctx.clip(); ctx.restore()
   }
+  // 有机纹理：value noise 分层上色（stops 按阈值从低到高，2px 像素块保持像素感）
+  function fbmTile(i, stops, scale = 5, seed) {
+    const [x0, y0] = tileXY(i)
+    const noise = makeFbm2D(seed ?? (i * 991 + 7), 3)
+    for (let py = 0; py < TILE; py += 2) {
+      for (let px = 0; px < TILE; px += 2) {
+        const v = noise((px / TILE) * scale, (py / TILE) * scale)
+        let color = stops[stops.length - 1].c
+        for (const s of stops) { if (v <= s.t) { color = s.c; break } }
+        ctx.fillStyle = color
+        ctx.fillRect(x0 + px, y0 + py, 2, 2)
+      }
+    }
+  }
 
-  // 0 草顶
-  fill(0, '#5cb544'); speckle(0, ['#4ea23a', '#6cc653', '#57ab40'], 320, 3)
-  // 1 草侧：上 1/4 草，其余泥巴
-  fill(1, '#8a6142'); speckle(1, ['#7a5538', '#966c4b'], 220, 3)
+  // 0 草顶：多层次绿色草甸 + 亮草尖
+  fbmTile(0, [{ t: 0.38, c: '#468f37' }, { t: 0.5, c: '#51a340' }, { t: 0.62, c: '#5cb544' }, { t: 1, c: '#69c250' }], 6)
+  speckle(0, ['#7fd35f', '#8ada6a'], 46, 1)
+  speckle(0, ['#3d7d30'], 30, 1)
+  // 1 草侧：有机泥土 + 参差下垂的草皮边
+  fbmTile(1, [{ t: 0.4, c: '#6d4a30' }, { t: 0.55, c: '#7a5538' }, { t: 0.72, c: '#8a6142' }, { t: 1, c: '#96704e' }], 5)
   ;(() => { const [x, y] = tileXY(1)
-    ctx.fillStyle = '#5cb544'; ctx.fillRect(x, y, TILE, 14)
-    for (let n = 0; n < 20; n++) { ctx.fillRect(x + Math.floor(rand() * TILE), y + 12 + Math.floor(rand() * 6), 3, 4) }
+    const n1 = makeFbm2D(881, 2)
+    for (let px = 0; px < TILE; px += 2) {
+      const h = 9 + Math.floor(n1(px / TILE * 5, 0.3) * 9)
+      ctx.fillStyle = '#51a340'; ctx.fillRect(x + px, y, 2, h)
+      ctx.fillStyle = '#69c250'; ctx.fillRect(x + px, y, 2, 3)
+      ctx.fillStyle = '#3d7d30'; ctx.fillRect(x + px, y + h - 2, 2, 2)
+    }
   })()
-  // 2 泥巴：棕色 + 深色湿斑
-  fill(2, '#8a6142'); speckle(2, ['#7a5538', '#966c4b', '#6d4a30'], 260, 3)
-  blobs(2, ['rgba(90,60,38,0.5)'], 5, 4, 8)
+  // 2 泥巴：湿润土壤层次 + 深色孔隙
+  fbmTile(2, [{ t: 0.36, c: '#5f4029' }, { t: 0.5, c: '#6d4a30' }, { t: 0.66, c: '#7d5638' }, { t: 1, c: '#8f6647' }], 6)
+  speckle(2, ['#4a3220'], 40, 2)
+  speckle(2, ['#9a7454'], 26, 1)
   // 3 木侧：竖条木纹
   fill(3, '#8f6b3d')
   ;(() => { const [x, y] = tileXY(3)
@@ -69,16 +91,23 @@ export function createAtlas() {
   ;(() => { const [x, y] = tileXY(4); ctx.strokeStyle = '#7d5c33'; ctx.lineWidth = 3
     for (let r = 6; r < 34; r += 8) { ctx.beginPath(); ctx.arc(x + 32, y + 32, r, 0, Math.PI * 2); ctx.stroke() }
   })()
-  // 5 树叶
-  fill(5, '#3f8f33'); speckle(5, ['#357a2b', '#4aa63d', '#2e6b25'], 340, 4)
-  // 6 石头：灰噪点 + 裂纹
-  fill(6, '#8d8d8d'); speckle(6, ['#828282', '#989898', '#777777'], 300, 3)
-  ;(() => { const [x, y] = tileXY(6); ctx.strokeStyle = '#6e6e6e'; ctx.lineWidth = 2
+  // 5 树叶：深浅簇叶 + 透光暗洞
+  fbmTile(5, [{ t: 0.36, c: '#2a6122' }, { t: 0.5, c: '#357a2b' }, { t: 0.66, c: '#3f8f33' }, { t: 1, c: '#4aa63d' }], 7)
+  speckle(5, ['#1e4718'], 36, 2)
+  speckle(5, ['#5cb544'], 30, 1)
+  // 6 石头：多倍频灰岩 + 裂缝阴影
+  fbmTile(6, [{ t: 0.4, c: '#797979' }, { t: 0.54, c: '#848484' }, { t: 0.7, c: '#8f8f8f' }, { t: 1, c: '#9b9b9b' }], 5)
+  ;(() => { const [x, y] = tileXY(6)
     for (let n = 0; n < 3; n++) {
-      ctx.beginPath(); let px = x + rand() * TILE, py = y + rand() * TILE
-      ctx.moveTo(px, py)
-      for (let s = 0; s < 4; s++) { px += (rand() - 0.5) * 26; py += (rand() - 0.5) * 26; ctx.lineTo(px, py) }
-      ctx.stroke()
+      let px = x + rand() * TILE, py = y + rand() * TILE
+      for (let s = 0; s < 5; s++) {
+        const nx = px + (rand() - 0.5) * 24, ny = py + (rand() - 0.5) * 24
+        ctx.strokeStyle = '#666666'; ctx.lineWidth = 2
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(nx, ny); ctx.stroke()
+        ctx.strokeStyle = 'rgba(200,200,200,0.35)'; ctx.lineWidth = 1
+        ctx.beginPath(); ctx.moveTo(px + 1, py + 1); ctx.lineTo(nx + 1, ny + 1); ctx.stroke()
+        px = nx; py = ny
+      }
     }
   })()
   // 7 石砖：砖缝
@@ -92,21 +121,24 @@ export function createAtlas() {
     }
     speckle(7, ['#909090', '#a4a4a4'], 120, 2)
   })()
-  // 8 普通矿石：石底 + 青色晶斑
-  fill(8, '#8d8d8d'); speckle(8, ['#828282', '#989898'], 200, 3)
+  // 8 普通矿石：灰岩底 + 有棱有角的青晶簇（暗边+亮角）
+  fbmTile(8, [{ t: 0.4, c: '#797979' }, { t: 0.54, c: '#848484' }, { t: 0.7, c: '#8f8f8f' }, { t: 1, c: '#9b9b9b' }], 5, 8881)
   ;(() => { const [x, y] = tileXY(8)
-    for (let n = 0; n < 7; n++) {
-      const cx = x + 8 + rand() * 48, cy = y + 8 + rand() * 48, s = 4 + rand() * 5
+    for (let n = 0; n < 6; n++) {
+      const cx = x + 8 + rand() * 46, cy = y + 8 + rand() * 46, s = 5 + rand() * 5
+      ctx.fillStyle = '#1e7a76'; ctx.fillRect(cx - s / 2 - 1, cy - s / 2 - 1, s + 2, s + 2)  // 暗边
       ctx.fillStyle = '#39c8c4'; ctx.fillRect(cx - s / 2, cy - s / 2, s, s)
-      ctx.fillStyle = '#8ff0ed'; ctx.fillRect(cx - 1, cy - 1, 2, 2)
+      ctx.fillStyle = '#67dcd8'; ctx.fillRect(cx - s / 2, cy - s / 2, s, 2)                  // 顶棱
+      ctx.fillStyle = '#b8f5f2'; ctx.fillRect(cx - s / 2, cy - s / 2, 2, 2)                  // 亮角
     }
   })()
-  // 9 金子：金黄 + 高光星点
-  fill(9, '#e8b53a'); speckle(9, ['#d6a02c', '#f2c95c'], 200, 3)
+  // 9 金子：暖金层次 + 星芒高光
+  fbmTile(9, [{ t: 0.4, c: '#c9962a' }, { t: 0.55, c: '#d9a832' }, { t: 0.72, c: '#e8b53a' }, { t: 1, c: '#f2c95c' }], 5)
   ;(() => { const [x, y] = tileXY(9); ctx.fillStyle = '#fff3c4'
     for (let n = 0; n < 6; n++) {
       const cx = x + 6 + rand() * 52, cy = y + 6 + rand() * 52
       ctx.fillRect(cx - 1, cy - 4, 2, 8); ctx.fillRect(cx - 4, cy - 1, 8, 2)
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(cx - 1, cy - 1, 2, 2); ctx.fillStyle = '#fff3c4'
     }
   })()
   // 10 代码矿石：黑底 + 绿色字母连成线、纵横交错（设定集原文的样子）
@@ -177,10 +209,22 @@ export function createAtlas() {
     for (let n = 0; n < 30; n++) ctx.fillRect(x + 12 + Math.floor(rand() * 40), y + 12 + Math.floor(rand() * 40), 3, 3)
     ctx.strokeStyle = '#fff3c4'; ctx.lineWidth = 2; ctx.strokeRect(x + 8, y + 8, 48, 48)
   })()
-  // 15 基岩：深黑碎纹
-  fill(15, '#2b2b2f'); speckle(15, ['#1f1f23', '#3a3a40', '#333338'], 300, 4)
-  // 16 沙子
-  fill(16, '#e2d29a'); speckle(16, ['#d6c68c', '#ecdfae'], 280, 3)
+  // 15 基岩：高对比深岩层
+  fbmTile(15, [{ t: 0.36, c: '#17171b' }, { t: 0.5, c: '#222227' }, { t: 0.68, c: '#2e2e34' }, { t: 1, c: '#3b3b42' }], 6)
+  speckle(15, ['#0e0e11'], 40, 2)
+  // 16 沙子：细沙层次 + 风纹
+  fbmTile(16, [{ t: 0.4, c: '#d2c184' }, { t: 0.55, c: '#dbcb90' }, { t: 0.72, c: '#e2d29a' }, { t: 1, c: '#ecdfae' }], 6)
+  ;(() => { const [x, y] = tileXY(16)
+    ctx.strokeStyle = 'rgba(255,248,220,0.5)'; ctx.lineWidth = 1
+    for (let row = 0; row < 4; row++) {
+      ctx.beginPath()
+      for (let px = 0; px <= TILE; px += 4) {
+        const py = row * 16 + 10 + Math.sin(px / TILE * Math.PI * 2 + row * 2.1) * 3
+        px === 0 ? ctx.moveTo(x + px, y + py) : ctx.lineTo(x + px, y + py)
+      }
+      ctx.stroke()
+    }
+  })()
 
   // —— 第二章新增 tile ——
   // 17 水：蓝底波纹
@@ -247,8 +291,9 @@ export function createAtlas() {
   ;(() => { const [x, y] = tileXY(24); ctx.strokeStyle = '#e8b53a'; ctx.lineWidth = 3
     ctx.strokeRect(x + 6, y + 6, TILE - 12, TILE - 12)
   })()
-  // 25 暗黑石（终极之地地面）：近黑 + 紫斑
-  fill(25, '#17131f'); speckle(25, ['#241c30', '#0f0c16', '#2e2440'], 300, 3)
+  // 25 暗黑石（终极之地地面）：近黑层理 + 幽紫脉络
+  fbmTile(25, [{ t: 0.38, c: '#0d0a13' }, { t: 0.52, c: '#151020' }, { t: 0.7, c: '#1d1730' }, { t: 1, c: '#282045' }], 6)
+  speckle(25, ['#3d2f66', '#4a3a7a'], 34, 1)
   // 26 符号：黑底发光符文
   fill(26, '#0a0a14')
   ;(() => { const [x, y] = tileXY(26)
@@ -305,18 +350,25 @@ export function createAtlas() {
       ctx.beginPath(); ctx.moveTo(x+ax, y+ay); ctx.lineTo(x+bx, y+by); ctx.stroke()
     }
   })()
-  // 32 焦黑土：黑褐 + 余烬
-  fill(32, '#2e2320'); speckle(32, ['#241b18', '#3a2c26'], 280, 3)
-  ;(() => { const [x, y] = tileXY(32); ctx.fillStyle = '#e85f1a'
-    for (let n = 0; n < 5; n++) ctx.fillRect(x + Math.floor(rand() * TILE), y + Math.floor(rand() * TILE), 2, 2)
+  // 32 焦黑土：焦炭层理 + 明灭余烬
+  fbmTile(32, [{ t: 0.38, c: '#1c1512' }, { t: 0.52, c: '#261d19' }, { t: 0.7, c: '#322622' }, { t: 1, c: '#3f302a' }], 6)
+  ;(() => { const [x, y] = tileXY(32)
+    for (let n = 0; n < 6; n++) {
+      const cx = x + Math.floor(rand() * TILE), cy = y + Math.floor(rand() * TILE)
+      ctx.fillStyle = '#7a2e10'; ctx.fillRect(cx - 1, cy - 1, 4, 4)
+      ctx.fillStyle = '#e85f1a'; ctx.fillRect(cx, cy, 2, 2)
+      ctx.fillStyle = '#ffb35e'; ctx.fillRect(cx, cy, 1, 1)
+    }
   })()
   // 33 荧光石：暖黄发光
   fill(33, '#ffe89a'); blobs(33, ['#fff6c8', '#ffd75e'], 8, 5, 10); speckle(33, ['#fffbe0'], 60, 2)
 
   const texture = new THREE.CanvasTexture(canvas)
+  // 近处保持像素感、远处用 mipmap 消闪烁摩尔纹
   texture.magFilter = THREE.NearestFilter
-  texture.minFilter = THREE.NearestFilter
-  texture.generateMipmaps = false
+  texture.minFilter = THREE.NearestMipmapLinearFilter
+  texture.generateMipmaps = true
+  texture.anisotropy = 4
   texture.colorSpace = THREE.SRGBColorSpace
 
   // tile → UV 矩形（内缩半像素防渗色）
