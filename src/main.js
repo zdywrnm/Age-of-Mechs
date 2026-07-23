@@ -412,13 +412,14 @@ function startGame(robotConfig, save) {
     if (!player.pengPotion) {
       monsters.spawn('kunpeng', POS.KUNPENG_AIR.x, POS.KUNPENG_AIR.y, POS.KUNPENG_AIR.z, {
         boss: true, bossName: '鲲鹏', hp: 5000, atk: 24, gears: 80, tag: 'mainboss',
-        // 环游整个主世界的航线：深海 → 收服大陆 → 城镇北海域 → 作者小岛，循环
+        // 环游整个主世界的航线：深海 → 收服大陆 → 主岛外海 → 作者小岛，循环
+        // （v4：主岛段改走外海，避开北部矿峰空域）
         patrol: {
           path: [
             [POS.KUNPENG_AIR.x, POS.KUNPENG_AIR.z],
             [POS.TAME_LAND.x + 40, POS.TAME_LAND.z],
-            [POS.TOWER_C.x + 60, 64],
-            [POS.TOWER_C.x - 60, 90],
+            [200, 40],
+            [40, 60],
             [POS.HUT.x, POS.HUT.z + 40],
             [POS.SEA_PALACE.x - 60, POS.SEA_PALACE.z - 30],
           ],
@@ -444,9 +445,10 @@ function startGame(robotConfig, save) {
   // 环境刷怪池（主世界）
   monsters.poolsEnabled = true
   monsters.spawnPools = [
-    { tag: 'plains', points: [[110, 148], [146, 150], [108, 110], [150, 108]], types: ['spider', 'brute'], max: CFG.PLAINS_MAX, interval: CFG.PLAINS_SPAWN_INTERVAL, timer: 5, floor: 1, intervalMult: () => dayNight.isNight() ? 0.4 : 1 },
+    // v4：plains 点移到六区之间的野地（城墙外，不落任何区）
+    { tag: 'plains', points: [[86, 100], [180, 90], [90, 166], [176, 172]], types: ['spider', 'brute'], max: CFG.PLAINS_MAX, interval: CFG.PLAINS_SPAWN_INTERVAL, timer: 5, floor: 1, intervalMult: () => dayNight.isNight() ? 0.4 : 1 },
     { tag: 'ocean', points: [[240, 98, 300], [200, 97, 360], [340, 96, 340], [220, 98, 250], [420, 97, 320]], types: ['shark', 'octopus', 'fish', 'crab'], max: 5, interval: 15, timer: 8, floor: 3 },
-    { tag: 'sky', points: [[148, 132, 198], [300, 135, 240], [396, 130, 180], [128, 132, 300]], types: ['bird', 'angel'], max: 3, interval: 25, timer: 12, floor: 3 },
+    { tag: 'sky', points: [[128, 135, 20], [300, 135, 240], [396, 130, 180], [128, 132, 300]], types: ['bird', 'angel'], max: 3, interval: 25, timer: 12, floor: 3 },
     { tag: 'tame', points: [[366, 180], [420, 215], [396, 230], [430, 185], [370, 220]], types: ['brute', 'spider', 'crab', 'archer'], max: 4, interval: 18, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
   ]
   // 池子只在主世界生效
@@ -507,6 +509,13 @@ function startGame(robotConfig, save) {
   // —— 地标（指南针/小地图共用）——
   const POIS = [
     { x: POS.TOWER_C.x, z: POS.TOWER_C.z, icon: '🗼', label: '作者之塔' },
+    // v4 六区
+    { x: POS.BAMBOO_C.x, z: POS.BAMBOO_C.z, icon: '🎋', label: '竹林' },
+    { x: POS.HENGE_C.x, z: POS.HENGE_C.z, icon: '🗿', label: '巨石阵' },
+    { x: POS.MOUNT_C.x, z: POS.MOUNT_C.z, icon: '⛰️', label: '矿石群山' },
+    { x: POS.GHOST_C.x, z: POS.GHOST_C.z, icon: '👻', label: '鬼城遗址' },
+    { x: POS.FOREST_C.x, z: POS.FOREST_C.z, icon: '🌲', label: '森林' },
+    { x: POS.SPAWNER_C.x, z: POS.SPAWNER_C.z, icon: '🏯', label: '刷怪塔小岛' },
     { x: POS.HUT.x, z: POS.HUT.z, icon: '🏠', label: '作者小岛' },
     { x: POS.TAME_LAND.x, z: POS.TAME_LAND.z, icon: '🌴', label: '收服大陆' },
     { x: POS.SEA_PALACE.x, z: POS.SEA_PALACE.z, icon: '🌊', label: '深海' },
@@ -746,17 +755,23 @@ function startGame(robotConfig, save) {
     if (DEBUG) {
       if (code === 'KeyP') { fly = !fly; hud.toast(fly ? '🕊 飞行开' : '🚶 飞行关') }
       if (code === 'KeyN') {
+        const gy = (x, z) => ctx.world.surfaceAt(Math.floor(x), Math.floor(z)) + 1
         const spots = [
-          ['作者之塔', [80.5, STRUCT.towerGround + 1, 90.5]],
-          ['刷怪塔大厅', [STRUCT.teleporterPad[0] + 2.5, STRUCT.teleporterPad[1], STRUCT.teleporterPad[2] + 0.5]],
-          ['地狱传送门', [POS.PORTAL_HELL.x + 0.5, CFG.SEA_LEVEL + 3, POS.PORTAL_HELL.z + 3.5]],
+          ['中央城市·作者之塔', [POS.TOWER_C.x + 0.5, STRUCT.towerGround + 1, POS.TOWER_C.z + 10.5]],
+          ['竹林', [POS.BAMBOO_C.x + 0.5, gy(POS.BAMBOO_C.x, POS.BAMBOO_C.z), POS.BAMBOO_C.z + 0.5]],
+          ['巨石阵高地', [POS.HENGE_C.x + 0.5, STRUCT.hengeGround + 1, POS.HENGE_C.z + 14.5]],
+          ['矿石群山', [POS.MOUNT_C.x + 0.5, gy(POS.MOUNT_C.x, POS.MOUNT_C.z), POS.MOUNT_C.z + 0.5]],
+          ['鬼城遗址', [POS.GHOST_C.x + 0.5, gy(POS.GHOST_C.x, POS.GHOST_C.z), POS.GHOST_C.z + 0.5]],
+          ['森林', [POS.FOREST_C.x + 0.5, gy(POS.FOREST_C.x, POS.FOREST_C.z), POS.FOREST_C.z + 0.5]],
+          ['刷怪塔小岛', [STRUCT.teleporterPad[0] + 2.5, STRUCT.teleporterPad[1], STRUCT.teleporterPad[2] + 0.5]],
+          ['地狱传送门', [POS.PORTAL_HELL.x + 0.5, gy(POS.PORTAL_HELL.x, POS.PORTAL_HELL.z) + 1, POS.PORTAL_HELL.z + 3.5]],
+          ['地下之城', [POS.CORE.x - 6.5, STRUCT.undercity.floorY + 0.1, POS.CORE.z + 0.5]],
           ['作者小岛', [POS.HUT.x + 0.5, 108, POS.HUT.z - 5.5]],
           ['丛林神殿', [POS.JUNGLE_TEMPLE.x - 12.5, 110, POS.JUNGLE_TEMPLE.z + 0.5]],
           ['深海上空', [POS.KUNPENG_AIR.x, 145, POS.KUNPENG_AIR.z - 15]],
           ['海底宫殿', [POS.SEA_PALACE.x + 0.5, 30, POS.SEA_PALACE.z - 18.5]],
           ['禁地', [POS.FORBIDDEN.x + 0.5, 108, POS.FORBIDDEN.z - 14.5]],
-          ['地下之城', [POS.CORE.x - 6.5, STRUCT.undercity.floorY + 0.1, POS.CORE.z + 0.5]],
-          ['收服大陆', [250.5, 112, 150.5]],
+          ['收服大陆', [366.5, gy(366, 180), 180.5]],
         ]
         window.__tpIdx = ((window.__tpIdx ?? -1) + 1) % spots.length
         const [name, p] = spots[window.__tpIdx]

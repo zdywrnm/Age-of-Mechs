@@ -2,6 +2,7 @@
 import { CFG, POS } from '../config.js'
 import { B } from '../blocks.js'
 import { mulberry32, makeFbm2D } from '../noise.js'
+import { zoneAt } from '../game/zones.js'
 
 const { SEED, SURFACE, SEA_LEVEL } = CFG
 
@@ -64,6 +65,44 @@ export function generateTerrain(world) {
         }
       }
 
+      // —— v4：巨石阵高地（西北，+6 缓坡台地）+ 北部矿石群山（五峰锥体）——
+      if (landH > 0) {
+        const dHg = Math.hypot(x - POS.HENGE_C.x, z - POS.HENGE_C.z)
+        if (dHg < 20) {
+          const t = dHg < 12 ? 1 : 1 - smooth((dHg - 12) / 8)
+          landH = Math.round(landH + 6 * t)
+        }
+        for (const [px, pz, ph, pr] of POS.MOUNT_PEAKS) {
+          const dP = Math.hypot(x - px, z - pz)
+          if (dP < pr) {
+            const t = 1 - dP / pr
+            const h2 = Math.round(landH + (ph - landH) * Math.pow(t, 1.4) + (fbm2(x * 0.08, z * 0.08) - 0.5) * 4 * t)
+            if (h2 > landH) landH = h2
+          }
+        }
+        if (landH >= 128) topKind = 'stone'   // 高峰石顶
+      }
+      // —— v4：西侧海峡（把刷怪塔小岛和主岛隔开）——
+      {
+        const st = POS.STRAIT
+        const eN = Math.hypot((x - st.x) / st.rx, (z - st.z) / st.rz)
+        if (eN < 1 && landH > 0) {
+          const s2 = smooth(1 - eN)
+          landH = Math.round(landH * (1 - s2) + 96 * s2)
+          if (landH <= 103) topKind = 'sand'
+        }
+      }
+      // —— v4：刷怪塔小岛（顶面缓台）——
+      {
+        const si = POS.SPAWNER_ISLE
+        const dI = Math.hypot(x - si.x, z - si.z)
+        if (dI <= si.r) {
+          const t = dI <= 6 ? 1 : 1 - smooth((dI - 6) / (si.r - 6))
+          const h2 = Math.round(98 + 8 * t)
+          if (h2 > landH) { landH = h2; topKind = h2 <= 103 ? 'sand' : 'grass' }
+        }
+      }
+
       // —— 海底 ——
       let oceanFloor = 88 + Math.round((fbm(x * 0.02, z * 0.02) - 0.5) * 8)
       const ds = POS.DEEP_SEA
@@ -85,6 +124,7 @@ export function generateTerrain(world) {
           if (underwater) id = B.SAND
           else if (topKind === 'sand') id = B.SAND
           else if (topKind === 'scorched') id = B.SCORCHED
+          else if (topKind === 'stone') id = B.STONE
           else id = B.GRASS
         }
         world.setRaw(x, y, z, id)
@@ -120,9 +160,11 @@ export function generateTerrain(world) {
   placeBlob(B.CODE, 60, 4, 40, 1.0, 1.6)
 
   // —— 树 ——
+  // v4：清理了旧岛心 (80,80) 时代的漂移坐标；主岛植被由各区模块负责，
+  // 这里只在六区之外的野地撒少量零散树
   const KEEP_OUT = [
-    { x: 80, z: 80, r: 14 }, { x: 32, z: 80, r: 14 }, { x: 128, z: 80, r: 14 },
-    { x: POS.SPAWN.x, z: POS.SPAWN.z, r: 6 }, { x: POS.PORTAL_HELL.x, z: POS.PORTAL_HELL.z, r: 8 },
+    { x: POS.SPAWN.x, z: POS.SPAWN.z, r: 8 },
+    { x: POS.PORTAL_HELL.x, z: POS.PORTAL_HELL.z, r: 8 },
     { x: POS.HUT.x, z: POS.HUT.z, r: 10 },
     { x: POS.JUNGLE_TEMPLE.x, z: POS.JUNGLE_TEMPLE.z, r: 18 },
     { x: POS.UNDERCITY_STAIR.x, z: POS.UNDERCITY_STAIR.z, r: 6 },
@@ -144,11 +186,14 @@ export function generateTerrain(world) {
         }
     return true
   }
-  // 初始城镇岛 25 棵
+  // 初始城镇岛零散树（只种在六区之外的野地）
   let placed = 0, tries = 0
-  while (placed < 25 && tries++ < 300) {
-    const ang = rand() * Math.PI * 2, rr = rand() * (CFG.ISLAND_R_FULL - 8)
-    if (tryTree(Math.round(80 + Math.cos(ang) * rr), Math.round(80 + Math.sin(ang) * rr), 4, 2, 2)) placed++
+  while (placed < 15 && tries++ < 400) {
+    const ang = rand() * Math.PI * 2, rr = 20 + rand() * (CFG.ISLAND_R_FULL - 26)
+    const tx = Math.round(CFG.ISLAND_CX + Math.cos(ang) * rr)
+    const tz = Math.round(CFG.ISLAND_CZ + Math.sin(ang) * rr)
+    if (zoneAt(tx, tz)) continue
+    if (tryTree(tx, tz, 4, 2, 2)) placed++
   }
   // 收服大陆丛林 70 棵（更高更密）
   placed = 0; tries = 0

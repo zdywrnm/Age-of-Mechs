@@ -71,6 +71,32 @@ check('海底宫殿潮涌箱', at(world, STRUCT.palaceChest) === B.CHEST)
 check('禁地神秘齿轮箱', at(world, STRUCT.forbiddenChest) === B.CHEST)
 check('刷怪塔传送台金砖', STRUCT.teleporterPad && world.get(STRUCT.teleporterPad[0], STRUCT.teleporterPad[1] - 1, STRUCT.teleporterPad[2]) === B.GOLD)
 
+// —— v4 地形与迁移结构 ——
+check('巨石阵在西北高地（地面≥SURFACE+3）', STRUCT.hengeGround >= CFG.SURFACE + 3, `hengeGround=${STRUCT.hengeGround}`)
+check('巨石阵位于新址', STRUCT.earthRoom.planks[0][0] === 76 && STRUCT.earthRoom.planks[0][2] === 72)
+check('海峡有水（小岛与主岛隔开）', world.get(POS.STRAIT.x, CFG.SEA_LEVEL, POS.STRAIT.z) === B.WATER)
+for (const [px, pz, ph] of POS.MOUNT_PEAKS) {
+  check(`矿峰(${px},${pz})高度≥${ph - 8}`, world.surfaceAt(px, pz) >= ph - 8, `surface=${world.surfaceAt(px, pz)}`)
+}
+check('地狱门在东南海岸', Math.hypot(STRUCT.hellPortal.base[0] - 196, STRUCT.hellPortal.base[2] - 196) < 2,
+  `base=${STRUCT.hellPortal.base}`)
+check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && STRUCT.teleporterPad[2] === POS.SPAWNER_C.z)
+// 石桥连通性：z=128 中线从小岛平台走到主岛竹林西岸，逐格可走（落脚实心+头顶2格空+高差≤1）
+{
+  let ok = true, detail = '', prevY = null
+  for (let x = POS.SPAWNER_C.x + 8; x <= POS.BRIDGE.x1 + 2; x++) {
+    let y = -1
+    for (let yy = 115; yy >= 95; yy--) if (world.isSolid(x, yy, 128)) { y = yy; break }
+    if (y < 0) { ok = false; detail = `x=${x} 无落脚`; break }
+    if (world.get(x, y + 1, 128) !== B.AIR || world.get(x, y + 2, 128) !== B.AIR) {
+      ok = false; detail = `x=${x} y=${y} 头顶不通(${world.get(x, y + 1, 128)},${world.get(x, y + 2, 128)})`; break
+    }
+    if (prevY !== null && Math.abs(y - prevY) > 1) { ok = false; detail = `x=${x} 落差 ${prevY}→${y}`; break }
+    prevY = y
+  }
+  check('石桥中线逐格可走', ok, detail)
+}
+
 // —— 区域系统 ——
 check('塔心在城市区', zoneAt(POS.TOWER_C.x, POS.TOWER_C.z)?.id === 'city')
 check('竹林中心判定', zoneAt(POS.BAMBOO_C.x, POS.BAMBOO_C.z)?.id === 'bamboo')
