@@ -107,7 +107,7 @@ export const DIMS = {
 export const POS = {
   // —— 初始城镇岛（第一章结构随岛心整体平移 +48,+48）——
   TOWER_C: { x: 128, z: 128 },
-  SPAWN: { x: 128.5, z: 141.5 },
+  SPAWN: { x: 128.5, z: 152.5 },   // v4：城南大道出生点
   THRONE: { x: 128, z: 128 },
   GOLD_TILE: { x: 128, z: 130 },
   NPC: { x: 125.5, z: 128.5 },

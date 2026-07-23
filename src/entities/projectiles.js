@@ -9,6 +9,7 @@ export class ProjectileManager {
     this.player = player
     this.monsters = null       // main 注入（友方弹命中判定用）
     this.onImpact = null       // (pos, kind) => {} 命中特效钩子
+    this.isSafeZone = null     // v4：敌方弹进入安全区即销毁（main 注入）
     this.list = []
   }
   get world() { return this.ctx.world }
@@ -73,6 +74,11 @@ export class ProjectileManager {
       a.pos.addScaledVector(a.dir, a.speed * dt)
       a.mesh.position.copy(a.pos)
       let dead = a.t > 3.5
+      // v4 安全区：敌方弹不得入城
+      if (!dead && !a.friendly && this.isSafeZone && this.isSafeZone(a.pos.x, a.pos.z)) {
+        this.onImpact && this.onImpact(a.pos, a.kind)
+        dead = true
+      }
       // 撞方块
       if (!dead && this.world.isSolid(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z))) {
         this.explode(a); dead = true

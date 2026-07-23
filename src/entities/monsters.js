@@ -403,6 +403,12 @@ export class MonsterManager {
         }
       }
 
+      // v4 安全区：敌怪不得踏入城内（不生成/不追击/不穿门）；玩家进城则脱战
+      if (this.isSafeZone && this.isSafeZone(m.ent.pos.x + m.ent.vel.x * 0.4, m.ent.pos.z + m.ent.vel.z * 0.4)) {
+        m.ent.vel.x = 0; m.ent.vel.z = 0
+        if (m.state === 'chase' && this.isSafeZone(p.ent.pos.x, p.ent.pos.z)) m.state = 'idle'
+      }
+
       moveEntity(this.world, m.ent, dt)
       if (m.ent.pos.y < -5) { this.kill(m); continue }
 
@@ -443,6 +449,7 @@ export class MonsterManager {
         y = this.world.surfaceAt(Math.floor(x), Math.floor(z)) + 1
       }
       if (Math.hypot(x - p.ent.pos.x, z - p.ent.pos.z) < 12) continue
+      if (this.isSafeZone && this.isSafeZone(x, z)) continue   // v4 安全区不刷怪
       const type = pool.types[Math.floor(Math.random() * pool.types.length)]
       this.spawn(type, x + 0.5, y, z + 0.5, { floor: pool.floor || 1, tag: pool.tag })
     }

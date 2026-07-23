@@ -97,6 +97,43 @@ check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && ST
   check('石桥中线逐格可走', ok, detail)
 }
 
+// —— v4 中央城市 ——
+{
+  const town = STRUCT.town
+  check('城市已生成', !!town)
+  if (town) {
+    check('房屋数量 = 22', town.houses.length === 22, `实际 ${town.houses.length}`)
+    check('商贩数量 = 4', town.vendors.length === 4)
+    check('居民数量 = 16', town.residents.length === 16)
+    // 每座房屋：门口 2 格空气可进，门里地板实心
+    for (const h of town.houses) {
+      const [dx, dz] = h.doorCell
+      const ok = world.get(dx, 113, dz) === B.AIR && world.get(dx, 114, dz) === B.AIR
+      check(`房屋(${h.x},${h.z})${h.type} 门可进`, ok, `door=(${dx},${dz})`)
+    }
+    check('仓库福利箱存在', town.wareChest && at(world, town.wareChest) === B.CHEST)
+  }
+  // 城墙四边采样
+  check('北城墙', world.get(110, 114, 96) === B.BRICK)
+  check('南城墙', world.get(110, 114, 160) === B.BRICK)
+  check('西城墙', world.get(96, 114, 110) === B.BRICK)
+  check('东城墙', world.get(160, 114, 110) === B.BRICK)
+  // 四门开洞（中心 2 格高空气）
+  for (const [gx, gz] of POS.CITY_GATES) {
+    check(`城门(${gx},${gz})通行`, world.get(gx, 113, gz) === B.AIR && world.get(gx, 114, gz) === B.AIR)
+  }
+  // 南门→塔前广场大道：铺砖 + 地面可走
+  {
+    let ok = true, detail = ''
+    for (let z = 159; z >= 137; z--) {
+      if (world.get(128, 112, z) !== B.BRICK) { ok = false; detail = `z=${z} 非砖`; break }
+      if (world.get(128, 113, z) !== B.AIR || world.get(128, 114, z) !== B.AIR) { ok = false; detail = `z=${z} 不通`; break }
+    }
+    check('南门→塔前大道铺砖可走', ok, detail)
+  }
+  check('出生点站在砖路上', world.get(128, 112, 152) === B.BRICK)
+}
+
 // —— 区域系统 ——
 check('塔心在城市区', zoneAt(POS.TOWER_C.x, POS.TOWER_C.z)?.id === 'city')
 check('竹林中心判定', zoneAt(POS.BAMBOO_C.x, POS.BAMBOO_C.z)?.id === 'bamboo')

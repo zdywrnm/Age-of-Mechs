@@ -36,7 +36,7 @@ export const RECIPES = [
   { out: 'boat_item',   need: { [B.WOOD]: 5 } },
 ]
 
-// 商店（作者小岛木屋，货币=普通齿轮钱包）
+// 商店（货币=普通齿轮钱包）
 export const SHOP_GOODS = [
   { id: 'fruit', price: 2 },
   { id: 'seafood', price: 2 },
@@ -45,6 +45,32 @@ export const SHOP_GOODS = [
   { id: 'wood_bundle', price: 4, name: '木头×10', icon: '🪵', outBlockN: [B.WOOD, 10] },
   { id: 'stone_bundle', price: 4, name: '石头×10', icon: '🪨', outBlockN: [B.STONE, 10] },
 ]
+
+// v4 中央城市四类商店 + 作者小岛老店
+export const SHOP_CATALOGS = {
+  island: { title: '🏪 作者小店（木屋神殿②）', goods: SHOP_GOODS,
+    tip: '作者：「花掉的齿轮不影响等级哦——等级看的是你一共收集过多少！」' },
+  food: { title: '🍎 食品铺', goods: [
+    { id: 'fruit', price: 2 },
+    { id: 'seafood', price: 2 },
+  ], tip: '果婶：「打怪前吃饱饱！」' },
+  build: { title: '🧱 建材铺', goods: [
+    { id: 'wood_bundle', price: 4, name: '木头×10', icon: '🪵', outBlockN: [B.WOOD, 10] },
+    { id: 'stone_bundle', price: 4, name: '石头×10', icon: '🪨', outBlockN: [B.STONE, 10] },
+    { id: 'brick_bundle', price: 5, name: '石砖×10', icon: '🧱', outBlockN: [B.BRICK, 10] },
+    { id: 'glow_bundle', price: 6, name: '荧光石×4', icon: '💡', outBlockN: [B.GLOWSTONE, 4] },
+  ], tip: '砖叔：「盖房子记得留窗户！」' },
+  combat: { title: '⚔️ 战斗装备铺', goods: [
+    { id: 'sword_stone', price: 8 },
+    { id: 'sword_ore', price: 16 },
+    { id: 'armor_stone', price: 10 },
+    { id: 'armor_ore', price: 18 },
+  ], tip: '钢爷：「代码神装买不到——得自己合成，矿在北边山里！」' },
+  transport: { title: '🛶 交通用品铺', goods: [
+    { id: 'boat_item', price: 15 },
+    { id: 'bed_block', price: 10, outBlock: B.BED, name: '床', icon: '🛏' },
+  ], tip: '帆帆：「出海记得带床，睡一觉天就亮！」' },
+}
 
 // 神秘齿轮 → 形态/能力（设定 Q5：齿轮标记决定形态）
 export const GEAR_INFO = {

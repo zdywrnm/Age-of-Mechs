@@ -26,9 +26,9 @@ export const STRUCT = {
 
 export function buildStructures(world) {
   STRUCT.lights = []
+  buildIsland(world, STRUCT)   // v4 六区（城市必须先于塔：整城拍平后塔在中心落座）
   buildAuthorTower(world)
   buildOreRoom(world)
-  buildIsland(world, STRUCT)   // v4 六区（巨石阵高地/刷怪塔小岛+石桥/…逐步迁入）
   buildHellPortal(world)
   buildAuthorHut(world)
   buildJungleTemple(world)
@@ -46,7 +46,7 @@ function buildAuthorTower(world) {
   const cx = POS.TOWER_C.x, cz = POS.TOWER_C.z, half = 7
   const s = world.surfaceAt(cx, cz)
   STRUCT.towerGround = s
-  flatten(world, cx, cz, half + 2, s)
+  flatten(world, cx, cz, half + 2, s, 40, B.BRICK)   // v4：塔前石砖广场（与十字大道相接）
   fill(world, cx - half, s + 1, cz - half, cx + half, s + 24, cz + half, B.BRICK)
   fill(world, cx - half + 1, s + 1, cz - half + 1, cx + half - 1, s + 23, cz + half - 1, B.AIR)
   for (const dx of [-half, half]) for (const dz of [-half, half])

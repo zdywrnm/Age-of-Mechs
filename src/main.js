@@ -16,7 +16,8 @@ import { Interaction } from './player/interaction.js'
 import { MonsterManager } from './entities/monsters.js'
 import { ProjectileManager } from './entities/projectiles.js'
 import { DropManager } from './entities/drops.js'
-import { AuthorNPC } from './entities/npc.js'
+import { AuthorNPC, Villager } from './entities/npc.js'
+import { zoneAt } from './game/zones.js'
 import { MysteryPickupManager } from './entities/mysteryPickup.js'
 import { BoatManager } from './entities/boat.js'
 import { FluidSim } from './game/fluids.js'
@@ -186,6 +187,10 @@ function startGame(robotConfig, save) {
     audio.sfx('shoot')
   }
   monsters.hud = hud
+  // v4 安全区注入：城内不刷怪/不追击/敌弹销毁
+  const inSafeZone = (x, z) => dims.active === 'main' && !!(zoneAt(x, z)?.safe)
+  monsters.isSafeZone = inSafeZone
+  projectiles.isSafeZone = inSafeZone
   const drops = new DropManager(() => entityGroup, ctx, player)
   const pets = new PetManager(() => entityGroup, ctx, player, monsters)
   const boats = new BoatManager(mainGroup, ctx, player)
@@ -200,6 +205,32 @@ function startGame(robotConfig, save) {
   const folkNpcs = STRUCT.undercity.folk.map((pos, i) =>
     new AuthorNPC(mainGroup, pos, '⛏ 地下族人', { head: '#8b939d', body: '#6a7078', arm: '#787f88', leg: '#5a5f66', headType: 'cube', eyeStyle: 'round', wide: false }))
 
+  // —— v4 城市 NPC：4 商贩（站柜台）+ 16 流动居民（大道/广场漫步）——
+  const RESIDENT_NAMES = ['铁蛋', '螺丝', '小齿轮', '阿铜', '闪闪', '嘟嘟', '钢镚', '小马达',
+    '布丁', '图纸', '扳手', '小灯泡', '贝壳', '咕噜', '天线', '小履带']
+  const RESIDENT_LINES = [
+    ['北边的大山里全是矿！', '听说还有会发光的稀有宝石，钻石红宝石蓝宝石都有！'],
+    ['西边竹林最近来了好多大熊猫！', '毛茸茸的，就是竹林深处的神殿有点吓人……'],
+    ['东边的鬼城晚上会传来奇怪的声音……', '还有喷火的大家伙在天上转！别一个人去！'],
+    ['南边森林里有座老神殿。', '我爷爷说二层藏着不得了的宝贝。'],
+    ['城里绝对安全，怪物进不来！', '但是城墙外面……可就说不准啦。'],
+    ['广场的井口通地下之城！', '跳下去有水垫接着，一点都不疼！'],
+    ['刷怪塔搬到西边海上的小岛了！', '出西门过石桥就到，一共一千层哦！'],
+    ['作者之塔就在城中心！', '有任务不知道做什么，就去找作者聊聊！'],
+  ]
+  const vendorNpcs = []
+  const residentNpcs = []
+  if (STRUCT.town) {
+    for (const v of STRUCT.town.vendors) {
+      const n = new Villager(mainGroup, v.pos, { label: v.label, face: v.face })
+      n.catalog = v.catalog
+      vendorNpcs.push(n)
+    }
+    STRUCT.town.residents.forEach((r, i) => {
+      residentNpcs.push(new Villager(mainGroup, r.pos, { label: `🤖 ${RESIDENT_NAMES[i % RESIDENT_NAMES.length]}`, patch: r.patch }))
+    })
+  }
+
   // 宝箱（五个神秘齿轮走箱子；齿轮箱用稳定 id，坐标变了存档也不作废）
   const chests = new ChestRegistry()
   chests.register(STRUCT.oreRoom.chest, { gear: 'ore' }, { id: 'gear:ore' })
@@ -207,6 +238,11 @@ function startGame(robotConfig, save) {
   chests.register(STRUCT.palaceChest, { gear: 'tide' }, { id: 'gear:tide' })
   chests.register(STRUCT.lightChest, { gear: 'light' }, { id: 'gear:light' })
   chests.register(STRUCT.forbiddenChest, { gear: 'mystery' }, { id: 'gear:mystery' })
+  if (STRUCT.town?.wareChest) {
+    chests.register(STRUCT.town.wareChest,
+      { blocks: [[B.WOOD, 20], [B.STONE, 20], [B.BRICK, 10]], toast: '🧰 仓库福利：木头×20 石头×20 石砖×10！' },
+      { id: 'town:warehouse' })
+  }
 
   const towerCtrl = new TowerV2(dims, monsters, hud)
   const portals = new PortalSystem(dims, player, hud, flags)
@@ -714,8 +750,18 @@ function startGame(robotConfig, save) {
         }
         if (hutNpc.distanceTo(player.ent.pos) < 4) {
           quests.onHutTalk()
-          shopUI.toggle(true)
+          shopUI.toggle(true, 'island')
           return
+        }
+        // v4：城内商贩 → 对应商店；居民 → 闲聊（顺带六区导览）
+        for (const v of vendorNpcs) {
+          if (v.distanceTo(player.ent.pos) < 3.5) { shopUI.toggle(true, v.catalog); return }
+        }
+        for (const r of residentNpcs) {
+          if (r.distanceTo(player.ent.pos) < 3) {
+            dialog.show(RESIDENT_LINES[Math.floor(Math.random() * RESIDENT_LINES.length)])
+            return
+          }
         }
         for (const folk of folkNpcs) {
           if (folk.distanceTo(player.ent.pos) < 3) {
@@ -920,6 +966,10 @@ function startGame(robotConfig, save) {
       pickups.update(dt, dims.activeDim().group)
       npc.update(dt); hutNpc.update(dt)
       for (const f of folkNpcs) f.update(dt)
+      if (dims.active === 'main') {
+        for (const v of vendorNpcs) v.update(dt, ctx.world)
+        for (const r of residentNpcs) r.update(dt, ctx.world)
+      }
       portals.update(dt)
       towerCtrl.update()
       // 世界 boss 血条（塔外）：显示最近一只已仇恨的 boss
@@ -973,6 +1023,8 @@ function startGame(robotConfig, save) {
         if (boats.riding) prompt = null
         else if (npc.distanceTo(player.ent.pos) < 3.5) prompt = '按 E 和作者说话'
         else if (hutNpc.distanceTo(player.ent.pos) < 4) prompt = '按 E 逛作者小店'
+        else if (vendorNpcs.some(v => v.distanceTo(player.ent.pos) < 3.5)) prompt = '按 E 逛铺子'
+        else if (residentNpcs.some(r => r.distanceTo(player.ent.pos) < 3)) prompt = '按 E 和居民聊聊'
         else if (folkNpcs.some(f => f.distanceTo(player.ent.pos) < 3)) prompt = '按 E 和地下族人聊聊'
         else if (boats.nearest(player.ent.pos)) prompt = '按 E 上船'
         else {
