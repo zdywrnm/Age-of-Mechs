@@ -1,22 +1,37 @@
-// 宝箱：五个神秘齿轮走箱子（矿石/大地/潮涌/光明/神秘），
+// 宝箱注册表 v2（v4 重写）：
+// - 每个箱子有稳定 id：齿轮箱显式传 'gear:<kind>'（坐标变了存档也不作废），
+//   普通物品箱默认用坐标串做 id
+// - reward 支持多种奖励：{ gear } 神秘齿轮 | { gears:n } 普通齿轮 |
+//   { items:[[itemId,n]] } 物品 | { blocks:[[blockId,n]] } 方块 | { grant:fn } 自定义发放
+//   可组合，另可带 { banner:[big,small] } 或 { toast } 展示
+// 五个神秘齿轮走箱子（矿石/大地/潮涌/光明/神秘），
 // 另外三个（森林/烈火/黑暗）是悬浮拾取物（mysteryPickup）
 export class ChestRegistry {
   constructor() {
-    this.chests = new Map()     // "x,y,z" -> { kind }
-    this.opened = new Set()     // 已开的 kind（按种类记录，坐标变了存档也不作废）
-    this.onOpen = null
+    this.chests = new Map()     // "x,y,z" -> { id, reward }
+    this.opened = new Set()     // 已开箱 id
+    this.onOpen = null          // (chest) => void  由 main 分发奖励
     this.onEmpty = null
   }
-  register(pos, kind) { this.chests.set(pos.join(','), { kind }) }
+  register(pos, reward, opts = {}) {
+    const key = pos.join(',')
+    this.chests.set(key, { id: opts.id || key, reward })
+  }
   open(x, y, z) {
     const c = this.chests.get(`${x},${y},${z}`)
     if (!c) { this.onEmpty && this.onEmpty(); return }
-    if (this.opened.has(c.kind)) { this.onEmpty && this.onEmpty(); return }
-    this.opened.add(c.kind)
-    this.onOpen && this.onOpen(c.kind)
+    if (this.opened.has(c.id)) { this.onEmpty && this.onEmpty(); return }
+    this.opened.add(c.id)
+    this.onOpen && this.onOpen(c)
   }
   serialize() { return [...this.opened] }
-  deserialize(list) { if (list) for (const k of list) this.opened.add(k) }
+  deserialize(list) {
+    if (!list) return
+    for (const k of list) {
+      // v3 旧档条目是裸齿轮种类（'ore' 等）→ 映射为稳定 id 'gear:<kind>'
+      this.opened.add((k.includes(':') || k.includes(',')) ? k : 'gear:' + k)
+    }
+  }
 }
 
 export const MYSTERY_GEARS = {

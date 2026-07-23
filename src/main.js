@@ -200,13 +200,13 @@ function startGame(robotConfig, save) {
   const folkNpcs = STRUCT.undercity.folk.map((pos, i) =>
     new AuthorNPC(mainGroup, pos, '⛏ 地下族人', { head: '#8b939d', body: '#6a7078', arm: '#787f88', leg: '#5a5f66', headType: 'cube', eyeStyle: 'round', wide: false }))
 
-  // 宝箱（五个神秘齿轮走箱子）
+  // 宝箱（五个神秘齿轮走箱子；齿轮箱用稳定 id，坐标变了存档也不作废）
   const chests = new ChestRegistry()
-  chests.register(STRUCT.oreRoom.chest, 'ore')
-  chests.register(STRUCT.earthRoom.chest, 'earth')
-  chests.register(STRUCT.palaceChest, 'tide')
-  chests.register(STRUCT.lightChest, 'light')
-  chests.register(STRUCT.forbiddenChest, 'mystery')
+  chests.register(STRUCT.oreRoom.chest, { gear: 'ore' }, { id: 'gear:ore' })
+  chests.register(STRUCT.earthRoom.chest, { gear: 'earth' }, { id: 'gear:earth' })
+  chests.register(STRUCT.palaceChest, { gear: 'tide' }, { id: 'gear:tide' })
+  chests.register(STRUCT.lightChest, { gear: 'light' }, { id: 'gear:light' })
+  chests.register(STRUCT.forbiddenChest, { gear: 'mystery' }, { id: 'gear:mystery' })
 
   const towerCtrl = new TowerV2(dims, monsters, hud)
   const portals = new PortalSystem(dims, player, hud, flags)
@@ -274,7 +274,22 @@ function startGame(robotConfig, save) {
     quests.onGearGot(kind)
     doSave()
   }
-  chests.onOpen = grantGear
+  // 宝箱奖励分发（v2：齿轮箱走原流程，普通箱按 reward 结构发放）
+  chests.onOpen = c => {
+    const r = c.reward
+    if (r.gear) { grantGear(r.gear); return }   // grantGear 自带 banner+音效+存档
+    if (r.gears) {
+      const leveled = player.addGears(r.gears)
+      if (leveled) { hud.toast(`⭐ 升级！现在是 ${player.level()} 级！`); audio.sfx('level') }
+    }
+    if (r.items) for (const [itemId, n] of r.items) player.addItem(itemId, n)
+    if (r.blocks) for (const [blockId, n] of r.blocks) player.addBlock(blockId, n)
+    if (typeof r.grant === 'function') r.grant()
+    if (r.banner) hud.banner(r.banner[0], r.banner[1] || '')
+    else if (r.toast) hud.toast(r.toast)
+    audio.sfx('chest')
+    doSave()
+  }
   chests.onEmpty = () => hud.toast('箱子是空的～')
   pickups.onPickup = grantGear
 
