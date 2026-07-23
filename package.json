@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --port 5173",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:world": "node scripts/check-world.mjs"
   },
   "dependencies": {
     "three": "^0.166.0"
