@@ -3,9 +3,11 @@
 import { buildTown } from './town.js'
 import { buildHenge } from './henge.js'
 import { buildSpawnerIsle } from './spawnerIsle.js'
+import { buildBamboo } from './bamboo.js'
 
 export function buildIsland(world, STRUCT) {
   buildTown(world, STRUCT)      // 城市先建（整城拍平；作者之塔随后在中心以同高度重拍）
   buildHenge(world, STRUCT)
   buildSpawnerIsle(world, STRUCT)
+  buildBamboo(world, STRUCT)
 }

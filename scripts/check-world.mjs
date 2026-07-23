@@ -134,6 +134,19 @@ check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && ST
   check('出生点站在砖路上', world.get(128, 112, 152) === B.BRICK)
 }
 
+// —— v4 竹林 + 神殿 ——
+{
+  check('竹林图腾宝箱存在', STRUCT.bambooChest && at(world, STRUCT.bambooChest) === B.CHEST)
+  check('神殿三层宝藏箱存在', STRUCT.bambooTreasure && at(world, STRUCT.bambooTreasure) === B.CHEST)
+  check('远古熊猫 Boss 场坐标已定义', !!STRUCT.bambooBoss)
+  check('三层封板存在（Boss 死前封住）', STRUCT.bambooSeal && STRUCT.bambooSeal.every(([x, y, z]) => world.get(x, y, z) === B.PLANK))
+  check('竹林中心判定', zoneAt(POS.BAMBOO_C.x, POS.BAMBOO_C.z)?.id === 'bamboo')
+  // 神殿一层入口可进
+  const t = POS.BAMBOO_TEMPLE
+  const ts = world.surfaceAt(t.x, t.z)
+  check('竹林神殿南门可进', world.get(t.x, ts + 1, t.z + 8) === B.AIR && world.get(t.x, ts + 2, t.z + 8) === B.AIR)
+}
+
 // —— 区域系统 ——
 check('塔心在城市区', zoneAt(POS.TOWER_C.x, POS.TOWER_C.z)?.id === 'city')
 check('竹林中心判定', zoneAt(POS.BAMBOO_C.x, POS.BAMBOO_C.z)?.id === 'bamboo')

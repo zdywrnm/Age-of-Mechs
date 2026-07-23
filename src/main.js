@@ -139,7 +139,7 @@ function startGame(robotConfig, save) {
   setupTouch(controls)           // 触屏设备：虚拟摇杆+视角拖动+按键组
   hud.setCamera(camera)
   const dialog = new Dialog(controls)
-  const flags = Object.assign({ portalCharged: false, fireSeaCleared: false, endingSeen: false }, save?.flags)
+  const flags = Object.assign({ portalCharged: false, fireSeaCleared: false, endingSeen: false, ancientPandaDefeated: false, ghostDragonDefeated: false }, save?.flags)
   const mainGroup = dims.get('main').group
 
   const player = new Player(scene, robotConfig, STRUCT.spawnPoint)
@@ -271,6 +271,16 @@ function startGame(robotConfig, save) {
       { blocks: [[B.WOOD, 20], [B.STONE, 20], [B.BRICK, 10]], toast: '🧰 仓库福利：木头×20 石头×20 石砖×10！' },
       { id: 'town:warehouse' })
   }
+  // v4 竹林隐藏图腾宝箱 → 神秘图腾（重复获得转 25 齿轮，逻辑在 grantArtifact）
+  if (STRUCT.bambooChest) {
+    chests.register(STRUCT.bambooChest, { grant: () => grantArtifact() }, { id: 'bamboo:totem' })
+  }
+  // v4 竹林神殿三层宝藏（远古熊猫死后开放）
+  if (STRUCT.bambooTreasure) {
+    chests.register(STRUCT.bambooTreasure,
+      { blocks: [[B.GOLD, 6], [B.ORE_DIAMOND, 4], [B.CODE, 3]], banner: ['💎 竹林秘藏！', '金子×6 钻石×4 代码矿石×3！'] },
+      { id: 'bamboo:treasure' })
+  }
 
   const towerCtrl = new TowerV2(dims, monsters, hud)
   const portals = new PortalSystem(dims, player, hud, flags)
@@ -390,6 +400,25 @@ function startGame(robotConfig, save) {
       player.addItem('peng_wings')
       hud.banner('🐦 你打败了鲲鹏！！', '获得 🧪鹏之药水 + 🪽鲲鹏之翼！打开背包（B）使用/装备！')
     }
+    // v4 远古熊猫：置 flag + 直接收服熊猫宠物（固定 800/45，非坐骑）+ 打开神殿三层封板
+    if (m.type === 'ancientpanda') {
+      flags.ancientPandaDefeated = true
+      pets.roster.push({ type: 'panda', name: '熊猫伙伴', maxHp: 800, hp: 800, atk: 45, mountable: false })
+      if (STRUCT.bambooSeal) for (const [x, y, z] of STRUCT.bambooSeal) ctx.world.set(x, y, z, B.AIR, true)
+      hud.banner('🐼 远古熊猫被你打败了！', '获得唯一的熊猫伙伴宠物！神殿三层的宝藏也开放了！')
+      audio.sfx('fanfare')
+      doSave()
+    }
+    // v4 邪恶巨龙：置 flag + 首杀大礼
+    if (m.type === 'ghostdragon') {
+      flags.ghostDragonDefeated = true
+      player.addGears(100)
+      player.addBlock(B.GOLD, 8); player.addBlock(B.CODE, 4)
+      player.addBlock(B.ORE_RUBY, 2); player.addBlock(B.ORE_SAPPHIRE, 2)
+      hud.banner('🐉 邪恶巨龙陨落！', '鬼城的天空恢复了平静！获得 100 齿轮 + 金子/代码/红蓝宝石！')
+      audio.sfx('fanfare')
+      doSave()
+    }
     pets.tryCapture(m)
   }
   monsters.onExplode = pos => {
@@ -405,6 +434,14 @@ function startGame(robotConfig, save) {
   monsters.onHit = (m2, dmg) => {
     fx.burst(new THREE.Vector3(m2.ent.pos.x, m2.ent.pos.y + m2.h * 0.6, m2.ent.pos.z),
       '#ffffff', { count: 4, speed: 2.2, up: 1.6, size: 0.09, additive: true })
+  }
+  // v4 远古熊猫范围震地：冲击环 + 土块 + 震屏
+  monsters.onBrawlerQuake = pos => {
+    const p = new THREE.Vector3(pos.x, pos.y, pos.z)
+    fx.ring(p, '#c8c4bc', { maxR: 6 })
+    fx.ring(p, '#7a2020', { maxR: 4, life: 0.4 })
+    fx.burst(p.clone().setY(p.y + 0.2), ['#8a6142', '#5f4029', '#c8c4bc'], { count: 22, speed: 6, up: 5, size: 0.2 })
+    fx.shake(0.5); audio.sfx('quake')
   }
   // 鲲鹏俯冲：风压线
   monsters.onSwoopStart = m2 => {
@@ -483,6 +520,19 @@ function startGame(robotConfig, save) {
   }
   // 主世界常驻 boss（目标未完成才出现）
   function spawnMainBosses() {
+    // v4 远古熊猫（竹林神殿二层 Boss 场；每档只出现一次）
+    if (!flags.ancientPandaDefeated && STRUCT.bambooBoss) {
+      monsters.spawn('ancientpanda', STRUCT.bambooBoss[0], STRUCT.bambooBoss[1], STRUCT.bambooBoss[2], {
+        boss: true, bossName: '远古熊猫', hp: 3200, atk: 22, gears: 30, tag: 'mainboss', aggroR: 14,
+      })
+    }
+    // v4 邪恶巨龙（鬼城上空盘旋；每档只出现一次）
+    if (!flags.ghostDragonDefeated) {
+      monsters.spawn('ghostdragon', POS.GHOST_C.x, 150, POS.GHOST_C.z, {
+        boss: true, bossName: '邪恶巨龙', hp: 10000, atk: 30, gears: 100, tag: 'mainboss',
+        patrol: { cx: POS.GHOST_C.x, cz: POS.GHOST_C.z, r: 18, y: 150 }, aggroR: 40,
+      })
+    }
     if (!player.hasGear('tide')) {
       monsters.spawn('seaguardian', POS.SEA_PALACE.x + 0.5, 28, POS.SEA_PALACE.z + 6.5, {
         boss: true, bossName: '海底守卫者', hp: 4000, atk: 26, gears: 80, tag: 'mainboss',
@@ -527,6 +577,14 @@ function startGame(robotConfig, save) {
   monsters.spawnPools = [
     // v4：plains 点移到六区之间的野地（城墙外，不落任何区）
     { tag: 'plains', points: [[86, 100], [180, 90], [90, 166], [176, 172]], types: ['spider', 'brute'], max: CFG.PLAINS_MAX, interval: CFG.PLAINS_SPAWN_INTERVAL, timer: 5, floor: 1, intervalMult: () => dayNight.isNight() ? 0.4 : 1 },
+    // v4 竹林：野生被动大熊猫
+    { tag: 'bamboo', points: [[POS.BAMBOO_C.x - 12, POS.BAMBOO_C.z], [POS.BAMBOO_C.x + 10, POS.BAMBOO_C.z - 8], [POS.BAMBOO_C.x, POS.BAMBOO_C.z + 12], [POS.BAMBOO_C.x + 8, POS.BAMBOO_C.z + 6]], types: ['panda'], max: 5, interval: 14, timer: 4, floor: 1 },
+    // v4 矿山：夜行怪
+    { tag: 'mountains', points: [[POS.MOUNT_C.x - 20, POS.MOUNT_C.z], [POS.MOUNT_C.x + 20, POS.MOUNT_C.z + 6], [POS.MOUNT_C.x, POS.MOUNT_C.z - 10]], types: ['spider', 'brute', 'archer'], max: 4, interval: 16, timer: 8, floor: 6, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
+    // v4 鬼城：变异载具 + 鬼怪（坦克/装甲车定值血量攻击）
+    { tag: 'ghost', points: [[POS.GHOST_C.x - 10, POS.GHOST_C.z - 10], [POS.GHOST_C.x + 12, POS.GHOST_C.z + 8], [POS.GHOST_C.x, POS.GHOST_C.z + 14], [POS.GHOST_C.x + 8, POS.GHOST_C.z - 12]], types: ['tank', 'apc', 'demon'], max: 5, interval: 18, timer: 10, floor: 12, opts: { tank: { hp: 400, atk: 24, gears: 6 }, apc: { hp: 180, atk: 12, gears: 4 } } },
+    // v4 森林：高密刷怪
+    { tag: 'forest', points: [[POS.FOREST_C.x - 16, POS.FOREST_C.z], [POS.FOREST_C.x + 16, POS.FOREST_C.z + 8], [POS.FOREST_C.x - 8, POS.FOREST_C.z + 16], [POS.FOREST_C.x + 10, POS.FOREST_C.z - 8]], types: ['spider', 'brute', 'archer'], max: 6, interval: 12, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
     { tag: 'ocean', points: [[240, 98, 300], [200, 97, 360], [340, 96, 340], [220, 98, 250], [420, 97, 320]], types: ['shark', 'octopus', 'fish', 'crab'], max: 5, interval: 15, timer: 8, floor: 3 },
     { tag: 'sky', points: [[128, 135, 20], [300, 135, 240], [396, 130, 180], [128, 132, 300]], types: ['bird', 'angel'], max: 3, interval: 25, timer: 12, floor: 3 },
     { tag: 'tame', points: [[366, 180], [420, 215], [396, 230], [430, 185], [370, 220]], types: ['brute', 'spider', 'crab', 'archer'], max: 4, interval: 18, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },

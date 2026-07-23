@@ -229,7 +229,91 @@ function buildSeaGuardian(scale = 3.2) {
   g.scale.setScalar(scale); return g
 }
 
+// —— v4 竹林：大熊猫（被动）& 远古熊猫（Boss）——
+function buildPanda(scale = 1, ancient = false) {
+  const g = new THREE.Group()
+  const white = ancient ? '#c8c4bc' : '#f2ecdf'   // 远古熊猫毛色灰旧
+  const black = ancient ? '#1a1a1e' : '#232328'
+  g.userData.legs = []
+  // 四条粗腿（黑）
+  for (const [sx, sz] of [[-0.28, -0.2], [0.28, -0.2], [-0.28, 0.2], [0.28, 0.2]]) {
+    const leg = box(0.24, 0.4, 0.24, black, sx, 0.2, sz)
+    g.add(leg); g.userData.legs.push(leg)
+  }
+  g.add(box(0.72, 0.6, 0.9, white, 0, 0.66, 0))          // 白胖躯干
+  g.add(box(0.16, 0.5, 0.2, black, -0.44, 0.7, 0))       // 黑前肢（肩带）
+  g.add(box(0.16, 0.5, 0.2, black, 0.44, 0.7, 0))
+  g.add(box(0.5, 0.46, 0.44, white, 0, 1.16, -0.36))     // 圆头
+  g.add(box(0.18, 0.16, 0.1, black, -0.24, 1.4, -0.3))   // 黑耳
+  g.add(box(0.18, 0.16, 0.1, black, 0.24, 1.4, -0.3))
+  g.add(box(0.16, 0.2, 0.06, black, -0.13, 1.14, -0.58)) // 黑眼圈
+  g.add(box(0.16, 0.2, 0.06, black, 0.13, 1.14, -0.58))
+  g.add(box(0.1, 0.09, 0.06, '#1a1a1a', 0, 1.06, -0.6))  // 鼻
+  if (ancient) {
+    eye(g, '#ff2020', 0.09, 0.11, -0.13, 1.16, -0.61); eye(g, '#ff2020', 0.09, 0.11, 0.13, 1.16, -0.61)  // 红眼
+    // 背部伤疤条
+    g.add(box(0.06, 0.04, 0.5, '#7a2020', 0, 0.98, 0))
+    g.add(box(0.5, 0.04, 0.06, '#7a2020', 0, 0.98, -0.1))
+  } else {
+    eye(g, '#101010', 0.06, 0.08, -0.13, 1.15, -0.61); eye(g, '#101010', 0.06, 0.08, 0.13, 1.15, -0.61)
+  }
+  g.scale.setScalar(scale); return g
+}
+
+// —— v4 鬼城：变异坦克 & 变异装甲车（履带载具，盒子拼装）——
+function buildTank(scale = 1) {
+  const g = new THREE.Group()
+  g.userData.wheels = []
+  // 履带（两侧长条）+ 轮
+  for (const sx of [-0.5, 0.5]) {
+    g.add(box(0.24, 0.34, 1.5, '#1a1a1c', sx, 0.24, 0))
+    for (let i = -2; i <= 2; i++) {
+      const w = box(0.28, 0.28, 0.28, '#2e2e32', sx, 0.2, i * 0.32)
+      g.add(w); g.userData.wheels.push(w)
+    }
+  }
+  g.add(box(1.0, 0.4, 1.4, '#3a4038', 0, 0.55, 0))       // 车体（暗绿锈迹）
+  g.add(box(0.7, 0.4, 0.7, '#454d42', 0, 0.9, 0.1))      // 炮塔
+  g.add(box(0.16, 0.16, 1.0, '#26291f', 0, 0.92, -0.6))  // 长炮管
+  g.add(box(0.22, 0.22, 0.22, '#0e0e08', 0, 0.92, -1.1)) // 炮口
+  // 变异：外壳凸起的暗红肉瘤
+  g.add(box(0.3, 0.2, 0.3, '#6a2020', -0.3, 0.78, -0.3))
+  g.add(box(0.24, 0.18, 0.24, '#7a2828', 0.34, 0.76, 0.3))
+  eye(g, '#ff3030', 0.1, 0.08, 0, 0.98, -0.26)
+  g.scale.setScalar(scale); return g
+}
+function buildApc(scale = 1) {
+  const g = new THREE.Group()
+  g.userData.wheels = []
+  for (const sx of [-0.46, 0.46]) {
+    for (let i = -1; i <= 1; i++) {
+      const w = box(0.3, 0.3, 0.3, '#2e2e32', sx, 0.22, i * 0.5)
+      g.add(w); g.userData.wheels.push(w)
+    }
+  }
+  g.add(box(0.92, 0.42, 1.7, '#463a30', 0, 0.56, 0))     // 扁长车体
+  g.add(box(0.7, 0.24, 0.9, '#544636', 0, 0.86, 0.1))    // 上装甲
+  g.add(box(0.2, 0.24, 0.2, '#26291f', 0, 0.98, -0.5))   // 车顶机枪盒
+  g.add(box(0.1, 0.1, 0.5, '#1a1a14', 0, 1.0, -0.85))    // 枪管
+  g.add(box(0.26, 0.18, 0.26, '#6a2020', -0.34, 0.8, 0.2)) // 变异肉瘤
+  eye(g, '#ff3030', 0.09, 0.07, -0.16, 0.9, -0.8); eye(g, '#ff3030', 0.09, 0.07, 0.16, 0.9, -0.8)
+  g.scale.setScalar(scale); return g
+}
+
 // ============ 动画钩子（monsters.update 每帧调 def.animate(m, ph, dt)）============
+function rollWheels(m, ph) {
+  const ws = m.group.userData.wheels
+  if (!ws) return
+  const speed = Math.hypot(m.ent.vel.x, m.ent.vel.z)
+  for (const w of ws) w.rotation.x = ph * (0.5 + speed)
+}
+function pandaWalk(m, ph) {
+  const legs = m.group.userData.legs
+  if (!legs) return
+  const speed = Math.hypot(m.ent.vel.x, m.ent.vel.z)
+  const amp = speed > 0.3 ? 0.45 : 0.05
+  legs.forEach((leg, i) => { leg.rotation.x = Math.sin(ph * 6 + (i % 2) * Math.PI) * amp })
+}
 function flapWings(m, ph) {
   const w = m.group.userData.wings
   if (!w) return
@@ -370,4 +454,27 @@ export const MONSTER_DEFS = {
   kunpeng:     { name: '鲲鹏', tags: ['鸟类', '鲨鱼类', '正义类'], w: 3.4, h: 2.6, speed: 5.0, build: buildKunpeng, ranged: true, melee: true, swoop: true, medium: 'air', projColor: '#7dd8ff', animate: kunpengWings },
   forbiddengolem: { name: '禁地守卫', tags: ['爆炸类', '远程攻击类', '邪恶类', '有脊椎类'], w: 1.8, h: 2.6, speed: 2.2, build: buildForbiddenGolem, ranged: true, radial: true, medium: 'ground', projColor: '#ff5030' },
   helldragon:  { name: '地狱魔龙', tags: ['邪恶类', '有脊椎类', '远程攻击类', '爆炸类'], w: 3.2, h: 3.2, speed: 4.0, build: () => buildDragon(3.2), ranged: true, melee: true, medium: 'air', projColor: '#ff3010', animate: flapWings },
+  // —— v4 竹林 ——
+  panda:        { name: '大熊猫', tags: ['熊猫类', '被动'], w: 0.9, h: 1.3, speed: 1.8, build: buildPanda, passive: true, melee: true, medium: 'ground', animate: pandaWalk },
+  ancientpanda: { name: '远古熊猫', tags: ['熊猫类', '邪恶类', '有脊椎类'], w: 1.8, h: 2.4, speed: 3.2, build: () => buildPanda(2.0, true), melee: true, brawler: true, medium: 'ground', animate: pandaWalk },
+  // —— v4 鬼城 ——
+  tank:  { name: '变异坦克', tags: ['载具类', '爆炸类', '邪恶类', '远程攻击类'], w: 1.4, h: 1.2, speed: 1.1, build: () => buildTank(1.3), ranged: true, tough: 0.6, projRadius: 2.5, medium: 'ground', projColor: '#ff5030', animate: rollWheels },
+  apc:   { name: '变异装甲车', tags: ['载具类', '邪恶类'], w: 1.2, h: 1.1, speed: 4.6, build: () => buildApc(1.2), melee: true, rammer: true, medium: 'ground', projColor: '#ff7040', animate: rollWheels },
+  ghostdragon: { name: '邪恶巨龙', tags: ['邪恶类', '有脊椎类', '远程攻击类', '爆炸类'], w: 3.2, h: 3.2, speed: 4.2, build: () => buildRedDragon(3.4), ranged: true, pillar: true, medium: 'air', projColor: '#ff2020', animate: flapWings },
+}
+
+// 红色巨龙：复用龙模型 traverse 改成血红配色
+function buildRedDragon(scale = 3.4) {
+  const g = buildDragon(1)
+  g.traverse(o => {
+    if (o.isMesh && o.material.color) {
+      const c = o.material.color.getHexString()
+      if (c === '5f1a10') o.material.color.set('#a01010')
+      else if (c === '7a2418') o.material.color.set('#c01818')
+      else if (c === '8f3020') o.material.color.set('#d02020')
+      else if (c === '4a1a1a') o.material.color.set('#7a1414')
+      else if (c === 'ffb020') o.material.color.set('#ff2020')   // 眼睛金→红
+    }
+  })
+  g.scale.setScalar(scale); return g
 }

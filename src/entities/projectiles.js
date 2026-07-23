@@ -27,6 +27,7 @@ export class ProjectileManager {
     this.list.push({
       pos: pos.clone(), dir: dir.clone(), speed, dmg, mesh, t: 0,
       friendly: !!opts.friendly, radius: opts.radius || 0,
+      enemyRadius: opts.enemyRadius || 0,   // v4：敌方弹对玩家溅射半径
       pierce: !!opts.pierce, kind: opts.kind || 'spark', homing: !!opts.homing, hitSet: new Set(),
     })
   }
@@ -105,13 +106,22 @@ export class ProjectileManager {
           }
         }
       } else if (!dead && !a.friendly && !p.dead) {
-        // 怪物弹：命中玩家
-        const hw = p.ent.w / 2 + 0.15
-        if (Math.abs(a.pos.x - p.ent.pos.x) < hw &&
-            a.pos.y > p.ent.pos.y - 0.1 && a.pos.y < p.ent.pos.y + p.ent.h + 0.1 &&
-            Math.abs(a.pos.z - p.ent.pos.z) < hw) {
-          p.takeDamage(a.dmg, a.pos)
-          dead = true
+        // 怪物弹：命中玩家。爆炸炮弹(enemyRadius>0)做近炸引信 + 距离衰减溅射
+        if (a.enemyRadius > 0) {
+          const d = Math.hypot(a.pos.x - p.ent.pos.x, a.pos.y - (p.ent.pos.y + p.ent.h * 0.5), a.pos.z - p.ent.pos.z)
+          if (d < a.enemyRadius) {
+            p.takeDamage(Math.round(a.dmg * (1 - d / a.enemyRadius / 2)), a.pos)
+            this.onImpact && this.onImpact(a.pos, 'explode')
+            dead = true
+          }
+        } else {
+          const hw = p.ent.w / 2 + 0.15
+          if (Math.abs(a.pos.x - p.ent.pos.x) < hw &&
+              a.pos.y > p.ent.pos.y - 0.1 && a.pos.y < p.ent.pos.y + p.ent.h + 0.1 &&
+              Math.abs(a.pos.z - p.ent.pos.z) < hw) {
+            p.takeDamage(a.dmg, a.pos)
+            dead = true
+          }
         }
       }
       if (dead) { a.mesh.parent && a.mesh.parent.remove(a.mesh); a.mesh.geometry.dispose(); a.mesh.material.dispose(); a.remove = true }

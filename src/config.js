@@ -65,7 +65,7 @@ export const CFG = {
   LAVA_DPS: 6, FIRE_DPS: 3,
 
   // 怪物
-  MONSTER_CAP: 14,
+  MONSTER_CAP: 20,   // v4：六区同屏更多怪
   AGGRO_RANGE: 12,
   PLAINS_SPAWN_INTERVAL: 20,
   PLAINS_MAX: 4,
