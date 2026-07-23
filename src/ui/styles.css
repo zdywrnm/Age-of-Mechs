@@ -264,3 +264,50 @@ body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; user-select: n
   .debug-corner { display: none !important; }
   .tfuncs { top: 252px; }
 }
+
+/* ===== 手机适配 v2：开始/自定义界面可滚动 + 横屏 HUD ===== */
+.screen { overflow-y: auto; }
+.start-box, .customize { margin: auto; padding: 24px 0; }
+
+@media (max-width: 600px) {
+  .game-title { font-size: 36px; }
+  .game-sub { font-size: 14px; margin: 10px 0 20px; }
+  .slot-card { padding: 8px 10px; gap: 8px; }
+  .slot-btn { padding: 6px 8px; font-size: 12px; }
+  .slot-avatar { width: 36px; height: 36px; font-size: 19px; }
+}
+
+/* 自定义界面：窄屏改纵向排布 */
+@media (max-width: 860px) {
+  .customize { flex-direction: column; gap: 14px; align-items: center; }
+  .custom-pane { width: min(92vw, 400px); }
+  .custom-pane h1 { font-size: 22px; margin-bottom: 10px; }
+  .swatch { width: 30px; height: 30px; }
+}
+
+/* 横屏矮窗（手机横屏游戏态） */
+@media (max-height: 500px) {
+  .hud-topleft { transform: scale(0.82); transform-origin: top left; }
+  .minimap { width: 96px; height: 96px; }
+  .quest-card { top: 118px; width: 195px; padding: 8px 10px; }
+  .quest-title { font-size: 12px; }
+  .quest-sub { font-size: 11px; }
+  .boss-bar { top: 2px; width: 300px; }
+  .toasts { top: 46px; }
+  .tfuncs { flex-direction: row; top: 6px; left: 50%; right: auto; transform: translateX(-50%); }
+  .tbtns { bottom: 8px; gap: 8px; }
+  .tbtn.big { width: 54px; height: 54px; font-size: 16px; }
+  .tskills { right: 80px; bottom: 8px; }
+  .tj-base { left: 20px; bottom: 20px; width: 96px; height: 96px; }
+  .tj-knob { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+  .dialog { bottom: 6px; padding: 10px 16px; }
+  .dialog .text { font-size: 15px; min-height: 40px; }
+  .prompt { bottom: 64px; font-size: 13px; }
+  .hotbar { transform: translateX(-50%) scale(0.7); }
+}
+
+/* 刘海屏安全区 */
+.hud-topleft { left: max(14px, env(safe-area-inset-left)); }
+.minimap, .quest-card { right: max(14px, env(safe-area-inset-right)); }
+.tbtns, .tfuncs { padding-right: env(safe-area-inset-right); }
+.tj-zone { padding-left: env(safe-area-inset-left); }

@@ -253,6 +253,7 @@ export class Player {
         this.ent.vel.y = jump
         this.jumpCount = 1
         this.spacePressed = true
+        this.onJump && this.onJump()
       } else if (this.equipment.wings) {
         // 二段跳（需要松开再按）
         if (!this.spaceHeld && this.jumpCount === 1) {

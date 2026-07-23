@@ -106,14 +106,19 @@ function showCustomize(onStart) {
   // —— 3D 预览 ——
   const pane = screen.querySelector('.preview-pane')
   const renderer = new THREE.WebGLRenderer({ antialias: true })
-  renderer.setSize(334, 414)
+  // 按窗口尺寸自适应（手机竖屏变矮、横屏更矮）
+  const pw = Math.min(334, Math.floor(innerWidth * 0.86))
+  const ph = innerHeight < 560 ? Math.floor(innerHeight * 0.42) : (innerWidth < 860 ? 250 : 414)
+  renderer.setSize(pw, ph)
+  pane.style.width = pw + 'px'
+  pane.style.height = ph + 'px'
   pane.appendChild(renderer.domElement)
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x16283e)
   scene.add(new THREE.HemisphereLight(0xdfefff, 0x556677, 1.2))
   const dl = new THREE.DirectionalLight(0xffffff, 1.0)
   dl.position.set(2, 4, 3); scene.add(dl)
-  const cam = new THREE.PerspectiveCamera(45, 334 / 414, 0.1, 20)
+  const cam = new THREE.PerspectiveCamera(45, pw / ph, 0.1, 20)
   cam.position.set(0, 1.35, 3.4)
   cam.lookAt(0, 0.95, 0)
   let robot = null

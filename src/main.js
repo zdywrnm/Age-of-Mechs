@@ -29,6 +29,7 @@ import { PortalSystem } from './game/portals.js'
 import { DayNight } from './game/dayNight.js'
 import { saveGame, loadGame } from './game/save.js'
 import { setupTouch } from './ui/touch.js'
+import { audio } from './audio.js'
 import { HUD } from './ui/hud.js'
 import { Dialog } from './ui/dialog.js'
 import { showStartScreen } from './ui/customize.js'
@@ -214,9 +215,9 @@ function startGame(robotConfig, save) {
       fx.burst(new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5), blockColors(id),
         { count: 8, speed: 2.6, up: 3, size: 0.12 })
     },
-    onBlockPlaced: (id, x, y, z) => { quests.onPlaced(); portals.onBlockPlaced(id, x, y, z) },
-    onCrackStage: (x, y, z, id) => fx.burst(new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5),
-      blockColors(id), { count: 3, speed: 1.6, up: 2, size: 0.09 }),
+    onBlockPlaced: (id, x, y, z) => { quests.onPlaced(); portals.onBlockPlaced(id, x, y, z); audio.sfx('place') },
+    onCrackStage: (x, y, z, id) => { audio.sfx('dig'); fx.burst(new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5),
+      blockColors(id), { count: 3, speed: 1.6, up: 2, size: 0.09 }) },
     isRestricted: () => dims.active === 'arena',
   }
   const interaction = new Interaction(ictx)
@@ -228,6 +229,7 @@ function startGame(robotConfig, save) {
     const info = MYSTERY_GEARS[kind]
     player.addMysteryGear(kind)
     hud.banner(`💠 获得 · ${info.name}！`, info.desc)
+    audio.sfx('chest')
     quests.onGearGot(kind)
     doSave()
   }
@@ -286,12 +288,14 @@ function startGame(robotConfig, save) {
   }
   drops.onPickup = n => {
     const firstGear = player.totalGears === 0
+    audio.sfx('pickup')
     const leveled = player.addGears(n)
     quests.onGears(n)
     if (firstGear) hud.toast('🚗 齿轮上有小车标记！按 T 变形！')
-    if (leveled) hud.toast(`⭐ 升级！现在是 ${player.level()} 级！`)
+    if (leveled) { hud.toast(`⭐ 升级！现在是 ${player.level()} 级！`); audio.sfx('level') }
   }
-  player.onHurt = () => hud.hurtFlash()
+  player.onHurt = () => { hud.hurtFlash(); audio.sfx('hurt') }
+  player.onJump = () => audio.sfx('jump')
 
   // —— 维度切换 ——
   dims.onGenerated = (id, dd) => {
@@ -304,6 +308,8 @@ function startGame(robotConfig, save) {
     if (id === 'void') pickups.place('dark', VOID.darkGear, dd.group)
   }
   dims.onSwitch = (id, spawnPos) => {
+    audio.sfx('portal')
+    audio.setBgm(id === 'main' ? 'main' : id)
     monsters.clearAll()
     projectiles.clearAll()
     drops.clearAll()
@@ -461,6 +467,8 @@ function startGame(robotConfig, save) {
     </div>
     <div class="save-hint">游戏每 5 秒自动存档，关掉网页也不会丢进度</div>`
   document.body.appendChild(pauseOverlay)
+  addEventListener('pointerdown', () => audio.resume(), { once: true })
+  addEventListener('keydown', () => audio.resume(), { once: true })
   pauseOverlay.addEventListener('click', () => {
     controls.requestLock()
     if (DEBUG) setTimeout(() => { if (!controls.locked) controls.virtualLock = true }, 300)
@@ -484,6 +492,7 @@ function startGame(robotConfig, save) {
   document.body.appendChild(deathOverlay)
   player.onDeath = () => {
     deathOverlay.style.display = 'flex'
+    audio.sfx('death')
     setTimeout(() => {
       if (dims.active !== 'main') dims.switchTo('main', STRUCT.spawnPoint)
       player.respawn()
@@ -519,6 +528,7 @@ function startGame(robotConfig, save) {
     if (code === 'KeyT') {
       const forms = player.computeForms()
       if (forms.length <= 1) { hud.toast('还没有其他形态！先收集变形齿轮吧'); return }
+      audio.sfx('transform')
       const f = player.transform()
       hud.toast({ robot: '🤖 变回机器人！', car: '🚗 变形：小车！', armor: '🛡️ 变形：矿石装甲！', dive: '🤿 变形：潜水形态！', super: '🌈 变形：全能形态！！' }[f])
     }
@@ -528,6 +538,7 @@ function startGame(robotConfig, save) {
       hud.toast(['👁 第一视角', '🎥 第三视角（背后）', '🤳 第二视角（正面）'][m])
     }
     if (code === 'KeyQ' && player.hasAbility('earth')) {
+      audio.sfx('quake')
       if (player.quakeCooldown > 0) { hud.toast(`地震冷却中… ${player.quakeCooldown.toFixed(1)}s`); return }
       player.quakeCooldown = CFG.QUAKE_COOLDOWN
       const dmg = Math.round(player.attack() * CFG.QUAKE_DMG_MULT)
@@ -544,6 +555,7 @@ function startGame(robotConfig, save) {
       fx.shake(0.4)
     }
     if (code === 'KeyC' && player.hasAbility('fire')) {
+      audio.sfx('fire')
       if (player.fireCooldown > 0) { hud.toast(`喷火冷却中… ${player.fireCooldown.toFixed(1)}s`); return }
       player.fireCooldown = CFG.FIRE_BREATH_COOLDOWN
       const fwd = controls.forwardFlat(new THREE.Vector3())
@@ -565,6 +577,7 @@ function startGame(robotConfig, save) {
       fx.shake(0.12)
     }
     if (code === 'KeyX' && player.hasAbility('light')) {
+      audio.sfx('flash')
       if (player.flashCooldown > 0) { hud.toast(`闪光冷却中… ${player.flashCooldown.toFixed(1)}s`); return }
       player.flashCooldown = CFG.FLASH_COOLDOWN
       let n = 0
@@ -586,6 +599,7 @@ function startGame(robotConfig, save) {
       hud.toast(`✨ 净化闪光！净化了 ${n} 只邪恶类！`)
     }
     if (code === 'KeyZ' && player.hasAbility('dark')) {
+      audio.sfx('stealth')
       if (player.stealthCooldown > 0) { hud.toast(`隐身冷却中… ${player.stealthCooldown.toFixed(1)}s`); return }
       player.stealthCooldown = CFG.STEALTH_COOLDOWN
       player.stealthTime = CFG.STEALTH_DURATION
@@ -593,6 +607,10 @@ function startGame(robotConfig, save) {
       fx.burst(new THREE.Vector3(player.ent.pos.x, player.ent.pos.y + 0.9, player.ent.pos.z),
         ['#7a4a9e', '#4a2a66', '#c084ff'], { count: 20, speed: 2.5, up: 2, size: 0.24, gravity: -2 })
       hud.toast('🌑 隐身！怪物看不见你了（8 秒）')
+    }
+    if (code === 'KeyM') {
+      const on = audio.toggle()
+      hud.toast(on ? '🔊 声音开' : '🔇 静音')
     }
     if (code === 'KeyH') {
       // 作者救援：主世界任何地方直接回出生点（卡在坑里/迷路专用）
@@ -607,9 +625,9 @@ function startGame(robotConfig, save) {
     }
     if (code === 'KeyE') {
       // 优先级：船 → 作者① → 作者②商店 → 地下族人 → 传送台
-      if (boats.riding) { boats.toggleRide(); hud.toast('⬇️ 下船'); return }
+      if (boats.riding) { boats.toggleRide(); audio.sfx('boat'); hud.toast('⬇️ 下船'); return }
       if (dims.active === 'main') {
-        if (boats.nearest(player.ent.pos)) { boats.toggleRide(); hud.toast('🛶 上船！WASD 开船，E 下船'); return }
+        if (boats.nearest(player.ent.pos)) { boats.toggleRide(); audio.sfx('boat'); hud.toast('🛶 上船！WASD 开船，E 下船'); return }
         if (npc.distanceTo(player.ent.pos) < 3.5) {
           if (!quests.onTalk()) {
             const q = quests.current()
@@ -718,6 +736,7 @@ function startGame(robotConfig, save) {
     }
   }
   controls.requestLock()
+  audio.ensure(); audio.setBgm('main')
   if (!save || quests.index === 0) quests.start()
   else if (quests.index === 7) { quests.advance() }  // 第一章通关档：直接开启第二章
   else hud.toast(`欢迎回来！当前任务：${quests.current().title}`)
@@ -839,6 +858,8 @@ function startGame(robotConfig, save) {
       quests.setFloor(dims.active === 'arena' ? towerCtrl.currentFloor : 0)
       dayNight.update(dt, dims.active === 'main', camera.position)
       fluids.tick(dt)
+      if (player.ent.inWater && !window.__wasInWater && player.ent.vel.y < -3) audio.sfx('splash')
+      window.__wasInWater = player.ent.inWater
       fx.update(dt)
       // 海面流动动画（纹理滚动 + 轻微呼吸）
       atlas.waterTexture.offset.x = (now * 0.000020) % 1
