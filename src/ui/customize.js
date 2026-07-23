@@ -1,47 +1,90 @@
-// 开始界面 + 出生自定义（左侧 3D 预览，右侧选项）
+// 开始界面（四档位选档）+ 出生自定义（左侧 3D 预览，右侧选项）
 import * as THREE from 'three'
 import { buildRobot, ROBOT_COLORS, DEFAULT_ROBOT } from '../player/robotModel.js'
-import { hasSave, clearSave } from '../game/save.js'
+import { listSlots, setCurrentSlot, deleteSlot, exportSlot, importToSlot, SLOT_COUNT } from '../game/save.js'
 
-// onStart(config | null)：null 表示继续已有存档
+// onStart(config | null)：null 表示继续所选档位的存档
 export function showStartScreen(onStart) {
   const screen = document.createElement('div')
   screen.className = 'screen'
-  const saved = hasSave()
   screen.innerHTML = `
     <div class="start-box">
       <div class="game-title">机甲时代</div>
       <div class="game-sub">第二章 · 完整世界 —— 原案：淇淇（世界的作者）</div>
-      <div class="btns"></div>
+      <div class="slots"></div>
+      <div class="slot-actions">
+        <button class="btn secondary import-btn">📂 导入存档文件</button>
+        <input type="file" accept=".json,application/json" style="display:none" class="import-file">
+      </div>
       <a class="docs-link" href="./docs.html">📜 开发历程 · 从一段口述设定到完整世界</a>
     </div>
   `
-  const btns = screen.querySelector('.btns')
-  if (saved) {
-    const cont = document.createElement('button')
-    cont.className = 'btn'
-    cont.textContent = '▶ 继续游戏'
-    cont.onclick = () => { screen.remove(); onStart(null) }
-    btns.appendChild(cont)
-    const restart = document.createElement('button')
-    restart.className = 'btn secondary'
-    restart.textContent = '🔄 重新开始'
-    restart.onclick = () => {
-      if (confirm('确定要重新开始吗？现在的进度会全部消失哦！')) {
-        clearSave()
-        screen.remove()
-        showCustomize(onStart)
-      }
-    }
-    btns.appendChild(restart)
-  } else {
-    const start = document.createElement('button')
-    start.className = 'btn'
-    start.textContent = '✨ 创造我的变形金刚'
-    start.onclick = () => { screen.remove(); showCustomize(onStart) }
-    btns.appendChild(start)
-  }
   document.body.appendChild(screen)
+
+  const fmtTime = ts => {
+    if (!ts) return ''
+    const d = new Date(ts)
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+
+  const render = () => {
+    const wrap = screen.querySelector('.slots')
+    wrap.innerHTML = ''
+    for (const s of listSlots()) {
+      const card = document.createElement('div')
+      card.className = 'slot-card' + (s.exists ? '' : ' empty')
+      if (s.exists) {
+        card.innerHTML = `
+          <div class="slot-avatar" style="background:${s.bodyColor}">🤖</div>
+          <div class="slot-info">
+            <div class="slot-name">档位 ${s.slot}</div>
+            <div class="slot-meta">⭐等级 ${s.level} · 💠${s.mystery}/8 · ${fmtTime(s.savedAt)}</div>
+          </div>
+          <div class="slot-btns">
+            <button class="slot-btn play">▶ 进入</button>
+            <button class="slot-btn">⬇ 导出</button>
+            <button class="slot-btn danger">✕</button>
+          </div>`
+        const [play, exp, del] = card.querySelectorAll('.slot-btn')
+        play.onclick = () => { setCurrentSlot(s.slot); screen.remove(); onStart(null) }
+        exp.onclick = () => exportSlot(s.slot)
+        del.onclick = () => {
+          if (confirm(`确定删除档位 ${s.slot} 吗？这个档位的进度会全部消失！`)) { deleteSlot(s.slot); render() }
+        }
+      } else {
+        card.innerHTML = `
+          <div class="slot-avatar dim">＋</div>
+          <div class="slot-info">
+            <div class="slot-name">档位 ${s.slot}</div>
+            <div class="slot-meta">空档位</div>
+          </div>
+          <div class="slot-btns"><button class="slot-btn play">✨ 新的冒险</button></div>`
+        card.querySelector('.play').onclick = () => {
+          setCurrentSlot(s.slot); screen.remove(); showCustomize(onStart)
+        }
+      }
+      wrap.appendChild(card)
+    }
+  }
+  render()
+
+  // 导入：选文件 → 写入第一个空档位（都满则提示先删一个）
+  const fileInput = screen.querySelector('.import-file')
+  screen.querySelector('.import-btn').onclick = () => fileInput.click()
+  fileInput.onchange = async () => {
+    const f = fileInput.files[0]
+    if (!f) return
+    const empty = listSlots().find(s => !s.exists)
+    if (!empty) { alert(`四个档位都满了～先删掉一个再导入吧`); fileInput.value = ''; return }
+    try {
+      importToSlot(empty.slot, await f.text())
+      render()
+      alert(`导入成功！存到了档位 ${empty.slot}`)
+    } catch (e) {
+      alert('导入失败：' + e.message)
+    }
+    fileInput.value = ''
+  }
 }
 
 function showCustomize(onStart) {

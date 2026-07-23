@@ -86,6 +86,11 @@ export class BoatManager {
         if (controls.keys.KeyS) throttle = -0.5
         if (controls.keys.KeyA) turn = -1
         if (controls.keys.KeyD) turn = 1
+        if (controls.touchMove) {   // 触屏摇杆开船
+          if (controls.touchMove.z > 0.25) throttle = Math.min(1, controls.touchMove.z)
+          else if (controls.touchMove.z < -0.25) throttle = Math.max(-0.5, controls.touchMove.z * 0.5)
+          if (Math.abs(controls.touchMove.x) > 0.3) turn = Math.sign(controls.touchMove.x)
+        }
       }
       // A/D 独立转向（低速转得慢，有开起来的感觉）
       const turnRate = 1.6 * (0.4 + 0.6 * Math.min(1, Math.abs(b.speed) / CFG.BOAT_SPEED))

@@ -146,6 +146,25 @@ body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; user-select: n
 .btn:hover { filter: brightness(1.1); }
 .btn:active { transform: translateY(3px); }
 .btn.secondary { background: linear-gradient(180deg, #2c4b66, #1b3348); color: var(--cyan); border: 1px solid var(--cyan-dim); }
+/* 选档界面 */
+.slots { display: flex; flex-direction: column; gap: 10px; margin: 8px auto 14px; width: min(460px, 92vw); }
+.slot-card { display: flex; align-items: center; gap: 14px; background: var(--steel); border: 1px solid var(--cyan-dim);
+  clip-path: var(--chamfer); padding: 10px 16px; text-align: left; }
+.slot-card.empty { opacity: 0.85; border-style: dashed; }
+.slot-avatar { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; font-size: 24px; flex: none; }
+.slot-avatar.dim { background: rgba(255,255,255,0.08); color: var(--text-dim); }
+.slot-info { flex: 1; min-width: 0; }
+.slot-name { color: #fff; font-size: 17px; font-weight: bold; }
+.slot-meta { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
+.slot-btns { display: flex; gap: 6px; }
+.slot-btn { pointer-events: auto; cursor: pointer; background: rgba(255,255,255,0.1); color: #fff;
+  border: 1px solid var(--cyan-dim); border-radius: 8px; padding: 7px 12px; font-size: 14px; white-space: nowrap; }
+.slot-btn.play { background: linear-gradient(180deg, var(--gold), #c9901f); color: #3a2800; font-weight: bold; border: none; }
+.slot-btn.danger { color: #ff8080; border-color: rgba(255,100,100,0.4); }
+.slot-btn:active { transform: translateY(2px); }
+.slot-actions { margin-top: 2px; }
+
 .docs-link { display: inline-block; pointer-events: auto; margin-top: 26px; color: var(--text-dim);
   font-size: 13px; letter-spacing: 2px; text-decoration: none; border-bottom: 1px dashed rgba(159,184,204,0.5); }
 .docs-link:hover { color: var(--cyan); border-color: var(--cyan); }
@@ -215,3 +234,33 @@ body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; user-select: n
 .floor-cell.locked { opacity: 0.3; cursor: default; }
 .floor-cell.locked:hover { border-color: transparent; }
 .floor-cell.dragon { background: rgba(176,48,64,0.45); color: var(--gold); }
+
+/* ===== 触屏操作层 ===== */
+.touch-ui { position: fixed; inset: 0; pointer-events: none; z-index: 15; }
+.tj-zone { position: absolute; left: 0; bottom: 0; width: 42vw; height: 55vh; pointer-events: auto; }
+.tj-base { position: absolute; left: 28px; bottom: 34px; width: 112px; height: 112px; border-radius: 50%;
+  background: rgba(10,14,20,0.4); border: 2px solid var(--cyan-dim); }
+.tj-knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
+  border-radius: 50%; background: rgba(125,252,255,0.35); border: 2px solid var(--cyan); }
+.tlook-zone { position: absolute; right: 0; top: 0; width: 58vw; height: 100vh; pointer-events: auto; }
+.tbtns { position: absolute; right: 18px; bottom: 96px; display: flex; flex-direction: column; gap: 12px; }
+.tbtn { pointer-events: auto; border: 2px solid var(--cyan-dim); background: rgba(10,14,20,0.55);
+  color: #fff; border-radius: 50%; font-size: 20px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; touch-action: none; -webkit-user-select: none; user-select: none; }
+.tbtn.big { width: 68px; height: 68px; }
+.tbtn.big span { font-size: 10px; color: var(--text-dim); }
+.tbtn.sm { width: 46px; height: 46px; border-radius: 12px; font-size: 13px; font-weight: bold; }
+.tbtn.on { background: rgba(125,252,255,0.4); border-color: var(--cyan); }
+.tfuncs { position: absolute; right: 14px; top: 210px; display: flex; flex-direction: column; gap: 8px; }
+.tskills { position: absolute; right: 100px; bottom: 96px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* 小屏 HUD 适配 */
+@media (max-width: 820px) {
+  .hp-wrap { min-width: 170px; padding: 6px 10px; }
+  .quest-card { width: 210px; top: 152px; font-size: 12px; }
+  .minimap { width: 128px; height: 128px; }
+  .hotbar { transform: translateX(-50%) scale(0.82); transform-origin: bottom center; }
+  .compass { display: none; }
+  .debug-corner { display: none !important; }
+  .tfuncs { top: 252px; }
+}

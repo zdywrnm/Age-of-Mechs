@@ -1,0 +1,8 @@
+{
+  "appId": "com.qiqi.ageofmechs",
+  "appName": "机甲时代",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  }
+}

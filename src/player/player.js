@@ -212,6 +212,7 @@ export class Player {
     // 移动输入
     let mx = 0, mz = 0
     if (controls.enabled) {
+      if (controls.touchMove) { mx += controls.touchMove.x; mz += controls.touchMove.z }
       if (controls.keys.KeyW) mz += 1
       if (controls.keys.KeyS) mz -= 1
       if (controls.keys.KeyA) mx -= 1

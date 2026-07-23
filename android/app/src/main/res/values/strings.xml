@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">机甲时代</string>
+    <string name="title_activity_main">机甲时代</string>
+    <string name="package_name">com.qiqi.ageofmechs</string>
+    <string name="custom_url_scheme">com.qiqi.ageofmechs</string>
+</resources>

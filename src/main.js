@@ -27,7 +27,8 @@ import { ChestRegistry, MYSTERY_GEARS } from './game/chests.js'
 import { TowerV2 } from './game/towerV2.js'
 import { PortalSystem } from './game/portals.js'
 import { DayNight } from './game/dayNight.js'
-import { saveGame, loadGame, migrateV1, migrateV2 } from './game/save.js'
+import { saveGame, loadGame } from './game/save.js'
+import { setupTouch } from './ui/touch.js'
 import { HUD } from './ui/hud.js'
 import { Dialog } from './ui/dialog.js'
 import { showStartScreen } from './ui/customize.js'
@@ -97,7 +98,7 @@ showStartScreen(config => boot(config))
 async function boot(newConfig) {
   const loading = new LoadingUI()
   await tick()
-  const save = newConfig ? null : (loadGame() || migrateV2() || migrateV1())
+  const save = newConfig ? null : loadGame()   // 槽位/旧档迁移都在 save.js 内部处理
   const robotConfig = newConfig || save.robotConfig
 
   loading.set(0.05, '正在创造大陆与海洋……')
@@ -132,6 +133,7 @@ async function boot(newConfig) {
 function startGame(robotConfig, save) {
   const controls = new Controls(renderer.domElement)
   const hud = new HUD(atlas)
+  setupTouch(controls)           // 触屏设备：虚拟摇杆+视角拖动+按键组
   hud.setCamera(camera)
   const dialog = new Dialog(controls)
   const flags = Object.assign({ portalCharged: false, fireSeaCleared: false, endingSeen: false }, save?.flags)
