@@ -497,6 +497,7 @@ function startGame(robotConfig, save) {
     { x: POS.SEA_PALACE.x, z: POS.SEA_PALACE.z, icon: '🌊', label: '深海' },
     { x: POS.FORBIDDEN.x, z: POS.FORBIDDEN.z, icon: '💀', label: '禁地' },
     { x: POS.PORTAL_HELL.x, z: POS.PORTAL_HELL.z, icon: '🔥', label: '地狱门' },
+    { x: POS.UNDERCITY_STAIR.x, z: POS.UNDERCITY_STAIR.z, icon: '🕳️', label: '地下城入口' },
   ]
   let codeScanT = 0
   // 水流漫延的小水花
@@ -706,6 +707,20 @@ function startGame(robotConfig, save) {
         const [tx, ty, tz] = STRUCT.teleporterPad
         if (Math.hypot(player.ent.pos.x - tx, player.ent.pos.z - tz) < 2.5 && Math.abs(player.ent.pos.y - ty) < 3) {
           teleporterUI.toggle(true)
+          return
+        }
+        // 地下之城入口（地面井口）→ 下城；井底传送台 → 回地面
+        const en = STRUCT.undercityEntrance, ext = STRUCT.undercityExit
+        if (en && Math.hypot(player.ent.pos.x - en[0], player.ent.pos.z - en[2]) < 3 && Math.abs(player.ent.pos.y - en[1]) < 4) {
+          player.ent.pos.x = ext[0]; player.ent.pos.y = ext[1] + 1; player.ent.pos.z = ext[2]
+          player.ent.vel.x = player.ent.vel.y = player.ent.vel.z = 0
+          audio.sfx('portal'); hud.toast('🕳️ 下到地下之城！这里有驱动核心和光明齿轮')
+          return
+        }
+        if (ext && Math.hypot(player.ent.pos.x - ext[0], player.ent.pos.z - ext[2]) < 3 && Math.abs(player.ent.pos.y - ext[1]) < 4) {
+          player.ent.pos.x = en[0]; player.ent.pos.y = en[1] + 1; player.ent.pos.z = en[2]
+          player.ent.vel.x = player.ent.vel.y = player.ent.vel.z = 0
+          audio.sfx('portal'); hud.toast('⬆️ 回到地面！')
           return
         }
       }
@@ -932,7 +947,10 @@ function startGame(robotConfig, save) {
         else if (boats.nearest(player.ent.pos)) prompt = '按 E 上船'
         else {
           const [tx, ty, tz] = STRUCT.teleporterPad
+          const en = STRUCT.undercityEntrance, ext = STRUCT.undercityExit
           if (Math.hypot(player.ent.pos.x - tx, player.ent.pos.z - tz) < 2.5 && Math.abs(player.ent.pos.y - ty) < 3) prompt = '按 E 打开千层塔传送台'
+          else if (en && Math.hypot(player.ent.pos.x - en[0], player.ent.pos.z - en[2]) < 3 && Math.abs(player.ent.pos.y - en[1]) < 4) prompt = '按 E 进入地下之城 🕳️'
+          else if (ext && Math.hypot(player.ent.pos.x - ext[0], player.ent.pos.z - ext[2]) < 3 && Math.abs(player.ent.pos.y - ext[1]) < 4) prompt = '按 E 回到地面 ⬆️'
         }
       }
       hud.setPrompt(prompt)

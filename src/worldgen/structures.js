@@ -436,31 +436,34 @@ function buildUndercity(world) {
   STRUCT.lightChest = lc
   STRUCT.undercity = { floorY, corePos: [corex, floorY, corez], shrinePos: [shx, floorY, shz], folk }
 
-  // 入口：地面竖井 + 折返坡道（3 宽，荧光石照明）
+  // 入口：地面 → 地下城 竖井（上部空气快速下落，底部 12 格水缓冲安全着陆）
   const ex = POS.UNDERCITY_STAIR.x, ez = POS.UNDERCITY_STAIR.z
   const es = world.surfaceAt(ex, ez)
-  // 地面开口标记（石砖框）
-  fill(world, ex - 2, es, ez - 2, ex + 2, es, ez + 2, B.BRICK)
-  // 第一段：向东下坡（每前进 1 格下降 1）
-  let y = es, px = ex
-  while (y > floorY + 36 && px < 140) {
-    fill(world, px, y - 1, ez - 1, px, y + 2, ez + 1, B.AIR)
-    fill(world, px, y - 2, ez - 1, px, y - 2, ez + 1, B.BRICK)
-    if (px % 6 === 0) world.setRaw(px, y + 2, ez - 1, B.GLOWSTONE)
-    px++; y--
+  const waterTop = floorY + 12    // 底部水缓冲高度
+  // 2×2 井道：底部水、上部空气
+  fill(world, ex, floorY, ez, ex + 1, waterTop, ez + 1, B.WATER)
+  fill(world, ex, waterTop + 1, ez, ex + 1, es + 1, ez + 1, B.AIR)
+  // 井壁石砖套管（把井道从周围土层里隔出来）
+  for (let y = floorY; y <= es; y++) {
+    for (const [dx, dz] of [[-1, 0], [-1, 1], [2, 0], [2, 1], [0, -1], [1, -1], [0, 2], [1, 2]]) {
+      const cur = world.get(ex + dx, y, ez + dz)
+      if (cur !== B.WATER && cur !== B.CORE_BLOCK && cur !== B.CHEST) world.setRaw(ex + dx, y, ez + dz, B.STONE)
+    }
+    if (y % 8 === 0) world.setRaw(ex - 1, y, ez, B.GLOWSTONE)   // 井壁灯
   }
-  // 平台
-  fill(world, px - 1, y - 1, ez - 1, px + 2, y + 2, ez + 3, B.AIR)
-  fill(world, px - 1, y - 2, ez - 1, px + 2, y - 2, ez + 3, B.BRICK)
-  // 第二段：向西下坡到城顶
-  while (y > floorY + 22 && px > 100) {
-    fill(world, px, y - 1, ez + 2, px, y + 2, ez + 4, B.AIR)
-    fill(world, px, y - 2, ez + 2, px, y - 2, ez + 4, B.BRICK)
-    if (px % 6 === 0) world.setRaw(px, y + 2, ez + 4, B.GLOWSTONE)
-    px--; y--
+  // 地面醒目入口：石砖平台 + 四角荧光石
+  for (let dx = -3; dx <= 4; dx++) for (let dz = -3; dz <= 4; dz++) {
+    if (dx >= 0 && dx <= 1 && dz >= 0 && dz <= 1) continue
+    world.setRaw(ex + dx, es, ez + dz, B.BRICK)
   }
-  // 竖直水电梯（整根水柱）：跳下去安全落地，按住空格就能游上去——双向通行
-  fill(world, px, floorY, ez + 2, px + 1, y + 2, ez + 3, B.WATER)
-  STRUCT.lights.push([px, floorY + 4, ez + 2])
-  STRUCT.undercityElevator = [px, ez + 2]
+  for (const [dx, dz] of [[-3, -3], [4, -3], [-3, 4], [4, 4]]) {
+    world.setRaw(ex + dx, es + 1, ez + dz, B.GLOWSTONE)
+    world.setRaw(ex + dx, es + 2, ez + dz, B.GLOWSTONE)
+  }
+  // 城腔井底回程传送台（发光核心块，按 E 回地面）
+  world.setRaw(ex, floorY - 1, ez, B.GLOWSTONE); world.setRaw(ex + 1, floorY - 1, ez + 1, B.GLOWSTONE)
+  STRUCT.lights.push([ex, es + 2, ez], [ex, floorY + 3, ez])
+  STRUCT.undercityEntrance = [ex + 0.5, es + 1, ez + 0.5]   // 地面井口（E 下城 / 回城落点）
+  STRUCT.undercityExit = [ex + 0.5, floorY, ez + 0.5]       // 城腔井底（E 回地面）
+  STRUCT.undercityElevator = [ex, ez]
 }
