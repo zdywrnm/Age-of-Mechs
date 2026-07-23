@@ -103,6 +103,7 @@ class AudioEngine {
       case 'portal': T({ freq: 200, freq2: 900, dur: 0.5, type: 'sine', vol: 0.25 }); T({ freq: 300, freq2: 1200, dur: 0.5, at: 0.08, type: 'sine', vol: 0.18 }); break
       case 'transform': T({ freq: 300, freq2: 600, dur: 0.1, type: 'square', vol: 0.2 }); T({ freq: 600, freq2: 400, dur: 0.12, at: 0.09, type: 'square', vol: 0.2 }); N({ dur: 0.1, at: 0.05, vol: 0.12, freq: 1500 }); break
       case 'boat':   N({ dur: 0.2, vol: 0.2, freq: 500, slide: 250, q: 0.7 }); break
+      case 'shoot':  T({ freq: 880, freq2: 300, dur: 0.12, type: 'square', vol: 0.16 }); N({ dur: 0.06, vol: 0.1, freq: 2000, slide: 800 }); break
       case 'click':  T({ freq: 900, dur: 0.04, type: 'square', vol: 0.12 }); break
       case 'death':  [392, 330, 262, 196].forEach((f, i) => T({ freq: f, dur: 0.25, at: i * 0.2, type: 'triangle', vol: 0.28 })); break
       case 'ending': [523, 659, 784, 880, 1047, 1319, 1568].forEach((f, i) => T({ freq: f, dur: 0.3, at: i * 0.16, type: 'triangle', vol: 0.26 })); break

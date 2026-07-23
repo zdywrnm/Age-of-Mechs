@@ -18,6 +18,7 @@ export function setupTouch(controls) {
     <div class="tbtns">
       <button class="tbtn big" data-hold="Space">⬆<span>跳</span></button>
       <button class="tbtn big" data-hold="KeyF">⛏<span>挖/打</span></button>
+      <button class="tbtn big" data-hold="KeyG">🔫<span>炮</span></button>
       <button class="tbtn big" data-tap="KeyR">✋<span>放/开</span></button>
     </div>
     <div class="tfuncs">

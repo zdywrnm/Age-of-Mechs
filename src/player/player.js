@@ -38,6 +38,7 @@ export class Player {
     this.flashCooldown = 0
     this.stealthCooldown = 0
     this.stealthTime = 0
+    this.shootCooldown = 0
     this.envDamageTick = 0
     this.jumpCount = 0
     this.mount = null          // 骑乘中的宠物
@@ -207,6 +208,7 @@ export class Player {
     this.fireCooldown = Math.max(0, this.fireCooldown - dt)
     this.flashCooldown = Math.max(0, this.flashCooldown - dt)
     this.stealthCooldown = Math.max(0, this.stealthCooldown - dt)
+    this.shootCooldown = Math.max(0, this.shootCooldown - dt)
     this.stealthTime = Math.max(0, this.stealthTime - dt)
 
     // 移动输入
@@ -315,6 +317,22 @@ export class Player {
     const eye = (this.form === 'car' || this.form === 'dive') ? 0.9 : CFG.EYE_HEIGHT
     return out.set(this.ent.pos.x, this.ent.pos.y + eye, this.ent.pos.z)
   }
+
+  // 远程炮档位：按已装备的元素齿轮返回弹药配置（越强的齿轮解锁越猛的弹）
+  weaponTier() {
+    const atk = this.attack()
+    if (this.hasAbility('mystery'))
+      return { name: '神秘追踪弹', color: '#c9a0ff', dmg: Math.round(atk * 1.6), speed: 26, cd: 0.42, count: 1, radius: 2.4, homing: true, size: 0.24, kind: 'mystery' }
+    if (this.hasAbility('fire'))
+      return { name: '烈焰爆弹', color: '#ff6a1a', dmg: Math.round(atk * 1.3), speed: 20, cd: 0.5, count: 1, radius: 2.6, size: 0.22, kind: 'explode' }
+    if (this.hasAbility('tide'))
+      return { name: '三连水弹', color: '#39c8ff', dmg: Math.round(atk * 0.7), speed: 22, cd: 0.5, count: 3, spread: 0.16, size: 0.18, kind: 'spark' }
+    if (this.hasAbility('light'))
+      return { name: '光明射线', color: '#fff0a8', dmg: Math.round(atk * 1.0), speed: 34, cd: 0.34, count: 1, pierce: true, size: 0.16, kind: 'spark' }
+    // 基础能量炮（所有机器人默认）
+    return { name: '能量弹', color: '#7dfcff', dmg: Math.round(atk * 0.85), speed: 24, cd: 0.45, count: 1, size: 0.18, kind: 'spark' }
+  }
+  canShoot() { return this.shootCooldown <= 0 && !this.dead && this.form !== 'car' && this.form !== 'dive' }
 
   serialize() {
     return {

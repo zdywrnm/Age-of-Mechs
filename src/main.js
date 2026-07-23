@@ -144,6 +144,47 @@ function startGame(robotConfig, save) {
   const monsters = new MonsterManager(() => entityGroup, ctx, player)
   const projectiles = new ProjectileManager(() => entityGroup, ctx, player)
   monsters.projectiles = projectiles
+  projectiles.monsters = monsters
+  projectiles.onImpact = (pos, kind) => {
+    if (kind === 'explode') {
+      fx.burst(pos, ['#ffd24a', '#ff7a1a', '#ff4020'], { count: 18, speed: 7, up: 3, size: 0.16 })
+      fx.ring(pos, '#ffb020', { maxR: 3, life: 0.4, y: pos.y })
+      fx.shake(0.5); audio.sfx('quake')
+    } else if (kind === 'mystery') {
+      fx.burst(pos, ['#c9a0ff', '#e8d0ff', '#a060ff'], { count: 14, speed: 6, up: 2.5, size: 0.14 })
+      audio.sfx('hit')
+    } else {
+      fx.burst(pos, ['#7dfcff', '#c8fbff'], { count: 6, speed: 4, up: 1.5, size: 0.1 })
+      audio.sfx('hit')
+    }
+  }
+
+  // —— 远程炮：G 键 / 触屏「炮」发射，弹药随齿轮升级 ——
+  function fireCannon() {
+    if (!player.canShoot()) return
+    const w = player.weaponTier()
+    player.shootCooldown = w.cd
+    const eye = player.headPos(new THREE.Vector3())
+    const dir = controls.forward(new THREE.Vector3())
+    // 从机器人右肩前方发射
+    const side = new THREE.Vector3(dir.z, 0, -dir.x).normalize().multiplyScalar(0.3)
+    const origin = eye.clone().add(dir.clone().multiplyScalar(0.6)).add(side)
+    const n = w.count || 1
+    for (let i = 0; i < n; i++) {
+      const d = dir.clone()
+      if (n > 1) {   // 扇形散射
+        const a = (i - (n - 1) / 2) * (w.spread || 0.14)
+        const cos = Math.cos(a), sin = Math.sin(a)
+        const nx = d.x * cos - d.z * sin, nz = d.x * sin + d.z * cos
+        d.x = nx; d.z = nz
+      }
+      projectiles.spawn(origin.clone(), d, w.speed, w.dmg, w.color,
+        { friendly: true, radius: w.radius || 0, pierce: w.pierce, homing: w.homing, size: w.size, kind: w.kind })
+    }
+    player.swing()
+    fx.burst(origin, [w.color, '#ffffff'], { count: 5, speed: 3, up: 1, size: 0.1, additive: true })
+    audio.sfx('shoot')
+  }
   monsters.hud = hud
   const drops = new DropManager(() => entityGroup, ctx, player)
   const pets = new PetManager(() => entityGroup, ctx, player, monsters)
@@ -470,7 +511,7 @@ function startGame(robotConfig, save) {
   pauseOverlay.className = 'overlay'
   pauseOverlay.innerHTML = `<div class="title">⏸ 暂停中 · 点击空白处继续</div>
     <div class="sub">WASD 移动 · 空格跳/游泳 · 左键挖/打 · 右键放/开箱<br>
-    T 变形 · B 背包 · E 对话/上船 · V 视角 · Q/C/X/Z 齿轮技能<br>
+    左键近战 · <b>G 远程炮</b>（按住连发）· T 变形 · B 背包 · E 对话/上船 · V 视角 · Q/C/X/Z 齿轮技能<br>
     <b>H 被困时回城</b> · 触控板玩家：方向键转视角 · F 挖/打 · R 放/开箱</div>
     <div class="pause-btns">
       <button class="btn pause-save">💾 立即存档</button>
@@ -748,6 +789,7 @@ function startGame(robotConfig, save) {
   }
   controls.requestLock()
   audio.ensure(); audio.setBgm('main')
+  setTimeout(() => hud.toast('🔫 按 G 发射远程炮！集齐元素齿轮解锁更强弹药'), 4000)
   if (!save || quests.index === 0) quests.start()
   else if (quests.index === 7) { quests.advance() }  // 第一章通关档：直接开启第二章
   else hud.toast(`欢迎回来！当前任务：${quests.current().title}`)
@@ -825,6 +867,7 @@ function startGame(robotConfig, save) {
       }
 
       interaction.update(dt)
+      if (controls.enabled && controls.keys.KeyG) fireCannon()   // 按住 G / 触屏炮键连发（受冷却节流）
       monsters.update(dt)
       projectiles.update(dt)
       drops.update(dt)
