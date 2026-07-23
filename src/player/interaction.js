@@ -159,7 +159,7 @@ export class Interaction {
     for (const m of this.ctx.monsters.list) if (!m.dead && blockIntersectsEntity(bx, by, bz, m.ent)) return
     world.set(bx, by, bz, slot.id)
     player.consumeBlock(slot.id)
-    this.ctx.onBlockPlaced && this.ctx.onBlockPlaced(slot.id)
+    this.ctx.onBlockPlaced && this.ctx.onBlockPlaced(slot.id, bx, by, bz)
   }
 
   update(dt) {

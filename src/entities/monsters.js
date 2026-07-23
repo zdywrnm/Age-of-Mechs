@@ -245,10 +245,20 @@ export class MonsterManager {
         const aggroDist = m.def.swoop ? distH : dist3
         if (!m.def.passive && aggroDist < aggroR && !p.dead && !stealthed) { m.state = 'chase'; m.swoopPhase = null }
         if (m.patrol) {
-          // 全速环形巡逻（肉眼可见地一直在动）
-          m.patrolA += (m.speed / Math.max(6, m.patrol.r)) * dt
-          const tx = m.patrol.cx + Math.cos(m.patrolA) * m.patrol.r
-          const tz = m.patrol.cz + Math.sin(m.patrolA) * m.patrol.r
+          // 全速巡逻：path=环游航线（逐点飞），否则绕圆环
+          let tx, tz
+          if (m.patrol.path) {
+            m.wpIdx = m.wpIdx || 0
+            const wp = m.patrol.path[m.wpIdx]
+            tx = wp[0]; tz = wp[1]
+            if (Math.hypot(tx - m.ent.pos.x, tz - m.ent.pos.z) < 8) {
+              m.wpIdx = (m.wpIdx + 1) % m.patrol.path.length
+            }
+          } else {
+            m.patrolA += (m.speed / Math.max(6, m.patrol.r)) * dt
+            tx = m.patrol.cx + Math.cos(m.patrolA) * m.patrol.r
+            tz = m.patrol.cz + Math.sin(m.patrolA) * m.patrol.r
+          }
           const ddx = tx - m.ent.pos.x, ddz = tz - m.ent.pos.z
           const dd = Math.hypot(ddx, ddz) || 1
           m.ent.vel.x = (ddx / dd) * m.speed

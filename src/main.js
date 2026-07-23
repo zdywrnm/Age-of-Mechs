@@ -356,7 +356,18 @@ function startGame(robotConfig, save) {
     if (!player.pengPotion) {
       monsters.spawn('kunpeng', POS.KUNPENG_AIR.x, POS.KUNPENG_AIR.y, POS.KUNPENG_AIR.z, {
         boss: true, bossName: '鲲鹏', hp: 5000, atk: 24, gears: 80, tag: 'mainboss',
-        patrol: { cx: POS.KUNPENG_AIR.x, cz: POS.KUNPENG_AIR.z, r: 36, y: POS.KUNPENG_AIR.y }, aggroR: 60,
+        // 环游整个主世界的航线：深海 → 收服大陆 → 城镇北海域 → 作者小岛，循环
+        patrol: {
+          path: [
+            [POS.KUNPENG_AIR.x, POS.KUNPENG_AIR.z],
+            [POS.TAME_LAND.x + 40, POS.TAME_LAND.z],
+            [POS.TOWER_C.x + 60, 64],
+            [POS.TOWER_C.x - 60, 90],
+            [POS.HUT.x, POS.HUT.z + 40],
+            [POS.SEA_PALACE.x - 60, POS.SEA_PALACE.z - 30],
+          ],
+          y: POS.KUNPENG_AIR.y,
+        }, aggroR: 60,
       })
     }
     if (!player.hasGear('mystery')) {
