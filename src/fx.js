@@ -10,6 +10,7 @@ export class FX {
     this.pool = []
     this.active = []
     this.rings = []
+    this.beams = []      // v4：红眼激光光束
     this.shakeAmp = 0
     const geo = new THREE.BoxGeometry(1, 1, 1)
     for (let i = 0; i < POOL_SIZE; i++) {
@@ -130,6 +131,20 @@ export class FX {
     this.rings.push({ m, t: 0, life, maxR })
   }
 
+  // v4 激光光束：细长发光方柱，瞬间出现快速淡出（红眼睛武器）
+  beam(from, to, color = '#ff2020') {
+    const len = from.distanceTo(to)
+    if (len < 0.5) return
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(0.09, 0.09, len),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })
+    )
+    m.position.copy(from).add(to).multiplyScalar(0.5)
+    m.lookAt(to)
+    this.scene.add(m)
+    this.beams.push({ m, t: 0, life: 0.13 })
+  }
+
   // 全屏白闪（光明技能）
   flash(ms = 260) {
     this.flashEl.style.transition = 'none'
@@ -147,6 +162,8 @@ export class FX {
     this.active = []
     for (const r of this.rings) { this.scene.remove(r.m); r.m.geometry.dispose(); r.m.material.dispose() }
     this.rings = []
+    for (const b of this.beams) { this.scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose() }
+    this.beams = []
   }
 
   update(dt) {
@@ -172,6 +189,12 @@ export class FX {
       r.m.material.opacity = 0.9 * (1 - k)
     }
     this.rings = this.rings.filter(r => !r.dead)
+    for (const b of this.beams) {
+      b.t += dt
+      if (b.t >= b.life) { this.scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose(); b.dead = true; continue }
+      b.m.material.opacity = 0.95 * (1 - b.t / b.life)
+    }
+    this.beams = this.beams.filter(b => !b.dead)
   }
 
   // 相机震动偏移（主循环在 updateCamera 之后调用）
@@ -188,5 +211,10 @@ export const BLOCK_FX_COLORS = {
   1: ['#5cb544', '#7a5538'], 2: ['#7a5538', '#8a6142'], 3: ['#8f6b3d'], 4: ['#3f8f33'],
   5: ['#8d8d8d', '#797979'], 6: ['#9a9a9a'], 7: ['#39c8c4', '#8d8d8d'], 8: ['#e8b53a', '#f2c95c'],
   9: ['#101810', '#2f9e2f'], 14: ['#e2d29a'], 16: ['#3a2c26', '#e85f1a'],
+  // v4 六区
+  38: ['#4fae4a', '#8fe08a'], 39: ['#46a83d', '#54bc49'], 40: ['#5fd8e8', '#8d8d8d'],
+  41: ['#e83a5a', '#8d8d8d'], 42: ['#3a6ae8', '#8d8d8d'], 43: ['#8a8a92', '#d82a2a'],
+  44: ['#3a3532', '#262220'], 45: ['#b4553a', '#8f3f2a'], 46: ['#e8e2d4'], 47: ['#232328'],
+  48: ['#a5202e', '#e8b53a'], 49: ['#d8cdb4', '#4a3a2a'], 50: ['#c73a48', '#f2ede0'],
 }
 export function blockColors(id) { return BLOCK_FX_COLORS[id] || ['#9a8a72', '#7a6a55'] }

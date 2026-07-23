@@ -23,7 +23,7 @@ export class Player {
     this.form = 'robot'
     this.inventory = new Map()  // 方块
     this.items = new Map()      // 物品
-    this.equipment = { sword: null, armor: null, wings: null }
+    this.equipment = { sword: null, armor: null, wings: null, artifact: null, ranged: null }   // v4：+神器/远程武器槽
     this.hotbarIndex = 0
     this.hp = this.maxHp()
     this.regenTimer = 0
@@ -55,13 +55,18 @@ export class Player {
   hasGear(kind) { return this.mysteryGears.includes(kind) }
   hasAbility(kind) { return this.equippedGears.includes(kind) || this.equippedGears.includes('mystery') }
 
+  // v4 统一伤害倍率入口：神秘图腾神器 ×2（作用于玩家全部主动伤害；宠物/环境伤害不吃）
+  damageMult() {
+    return this.equipment.artifact ? (ITEMS[this.equipment.artifact].dmgMult || 2) : 1
+  }
+
   attack() {
     let a = CFG.BASE_ATK + CFG.ATK_PER_LEVEL * (this.level() - 1)
     if (this.form === 'armor') a += CFG.ARMOR_ATK_BONUS
     if (this.form === 'super') a += 12
     if (this.hasAbility('earth')) a += 3
     if (this.equipment.sword) a += ITEMS[this.equipment.sword].atk
-    return a
+    return Math.round(a * this.damageMult())
   }
 
   // 形态派生（设定 Q5：齿轮标记决定形态）——每次由装备状态重算，不入存档
@@ -357,7 +362,7 @@ export class Player {
     this.equippedGears = d.equippedGears || this.mysteryGears.slice()
     this.inventory = new Map(d.inventory || [])
     this.items = new Map(d.items || [])
-    this.equipment = Object.assign({ sword: null, armor: null, wings: null }, d.equipment)
+    this.equipment = Object.assign({ sword: null, armor: null, wings: null, artifact: null, ranged: null }, d.equipment)
     this.pengPotion = !!d.pengPotion
     this.waterTime = d.waterTime || 0
     const forms = this.computeForms()

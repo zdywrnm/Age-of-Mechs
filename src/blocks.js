@@ -13,6 +13,10 @@ export const B = {
   BED: 25, PALACE_BRICK: 26, JUNGLE_BRICK: 27, CORE_BLOCK: 28,
   SCORCHED: 29, GLOWSTONE: 30, WATER_FLOW: 31,
   PRISMARINE: 32, SEA_LANTERN: 33, CORAL_PINK: 34, CORAL_BLUE: 35, SEAWEED: 36, PALACE_PILLAR: 37,
+  // —— v4 六区重建新增 ——
+  BAMBOO: 38, BAMBOO_LEAVES: 39, ORE_DIAMOND: 40, ORE_RUBY: 41, ORE_SAPPHIRE: 42,
+  TOTEM_BLOCK: 43, ASH_BRICK: 44, ROOF_TILE: 45, FUR_WHITE: 46, FUR_BLACK: 47,
+  CARPET_RED: 48, MURAL: 49, MARKET_CLOTH: 50,
 }
 
 export const BLOCKS = [
@@ -55,6 +59,20 @@ export const BLOCKS = [
   { name: '蓝珊瑚',   hardness: 0.3,      tiles: { top: 37, side: 37, bottom: 37 }, drop: 0, opaque: false },
   { name: '海草',     hardness: 0.1,      tiles: { top: 38, side: 38, bottom: 38 }, drop: 0, solid: false, opaque: false },
   { name: '海宫柱',   hardness: 1.6,      tiles: { top: 39, side: 39, bottom: 39 }, drop: B.PALACE_PILLAR },
+  // —— v4 六区重建 ——
+  { name: '竹子',       hardness: 0.4,    tiles: { top: 40, side: 40, bottom: 40 }, drop: B.BAMBOO },
+  { name: '竹叶',       hardness: 0.15,   tiles: { top: 41, side: 41, bottom: 41 }, drop: 0 },
+  { name: '钻石矿石',   hardness: 2.5,    tiles: { top: 42, side: 42, bottom: 42 }, drop: B.ORE_DIAMOND },
+  { name: '红宝石矿石', hardness: 2.5,    tiles: { top: 43, side: 43, bottom: 43 }, drop: B.ORE_RUBY },
+  { name: '蓝宝石矿石', hardness: 2.5,    tiles: { top: 44, side: 44, bottom: 44 }, drop: B.ORE_SAPPHIRE },
+  { name: '神秘图腾',   hardness: 3.0,    tiles: { top: 45, side: 46, bottom: 45 }, drop: 0 },  // 挖掘走特判发放神器
+  { name: '焦黑砖',     hardness: 1.2,    tiles: { top: 47, side: 47, bottom: 47 }, drop: B.ASH_BRICK },
+  { name: '陶瓦',       hardness: 0.8,    tiles: { top: 48, side: 48, bottom: 48 }, drop: B.ROOF_TILE },
+  { name: '白绒块',     hardness: 0.4,    tiles: { top: 49, side: 49, bottom: 49 }, drop: B.FUR_WHITE },
+  { name: '黑绒块',     hardness: 0.4,    tiles: { top: 50, side: 50, bottom: 50 }, drop: B.FUR_BLACK },
+  { name: '红地毯',     hardness: 0.3,    tiles: { top: 51, side: 51, bottom: 51 }, drop: B.CARPET_RED },
+  { name: '壁画',       hardness: 1.0,    tiles: { top: 52, side: 52, bottom: 52 }, drop: B.MURAL },
+  { name: '摊布',       hardness: 0.3,    tiles: { top: 53, side: 53, bottom: 53 }, drop: B.MARKET_CLOTH },
 ]
 
 export function isSolid(id) { return id !== B.AIR && BLOCKS[id].solid !== false }
@@ -62,4 +80,6 @@ export function isOpaque(id) { return id !== B.AIR && BLOCKS[id].opaque !== fals
 export function isBreakable(id) { return id !== B.AIR && BLOCKS[id].hardness !== Infinity }
 // 玩家可放置的方块
 export const PLACEABLE = [B.MUD, B.WOOD, B.STONE, B.BRICK, B.SAND, B.ORE, B.GOLD, B.CODE, B.PLANK,
-  B.MAGMA_STONE, B.MAGMA_WOOD, B.END_STONE, B.PALACE_BRICK, B.JUNGLE_BRICK, B.SCORCHED, B.GLOWSTONE, B.BED]
+  B.MAGMA_STONE, B.MAGMA_WOOD, B.END_STONE, B.PALACE_BRICK, B.JUNGLE_BRICK, B.SCORCHED, B.GLOWSTONE, B.BED,
+  B.BAMBOO, B.ORE_DIAMOND, B.ORE_RUBY, B.ORE_SAPPHIRE, B.ASH_BRICK, B.ROOF_TILE,
+  B.FUR_WHITE, B.FUR_BLACK, B.CARPET_RED, B.MURAL, B.MARKET_CLOTH]

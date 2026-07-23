@@ -4,6 +4,8 @@
 //         海底宫殿、禁地、地下之城(驱动核心+神殿③+光明齿轮)、刷怪塔改传送大厅
 import { CFG, POS } from '../config.js'
 import { B } from '../blocks.js'
+import { fill, flatten } from './lib.js'
+import { buildIsland } from './island/index.js'
 
 export const STRUCT = {
   towerGround: 0, spawnerGround: 0, hengeGround: 0,
@@ -22,30 +24,11 @@ export const STRUCT = {
   teleporterPad: null,   // 刷怪塔大厅传送台中心
 }
 
-function fill(world, x0, y0, z0, x1, y1, z1, id) {
-  for (let y = y0; y <= y1; y++)
-    for (let z = z0; z <= z1; z++)
-      for (let x = x0; x <= x1; x++) world.setRaw(x, y, z, id)
-}
-
-function flatten(world, cx, cz, half, groundY, clearH = 40, top = B.GRASS) {
-  for (let z = cz - half; z <= cz + half; z++)
-    for (let x = cx - half; x <= cx + half; x++) {
-      for (let y = groundY + 1; y <= groundY + clearH; y++) world.setRaw(x, y, z, B.AIR)
-      for (let y = Math.max(2, groundY - 5); y <= groundY; y++) {
-        world.setRaw(x, y, z, y === groundY ? top : (y >= groundY - 3 ? B.MUD : B.STONE))
-      }
-      world.setSurface(x, z, groundY)
-    }
-}
-
 export function buildStructures(world) {
   STRUCT.lights = []
+  buildIsland(world, STRUCT)   // v4 六区（城市必须先于塔：整城拍平后塔在中心落座）
   buildAuthorTower(world)
   buildOreRoom(world)
-  buildStonehenge(world)
-  buildEarthRoom(world)
-  buildSpawnerHall(world)
   buildHellPortal(world)
   buildAuthorHut(world)
   buildJungleTemple(world)
@@ -63,7 +46,7 @@ function buildAuthorTower(world) {
   const cx = POS.TOWER_C.x, cz = POS.TOWER_C.z, half = 7
   const s = world.surfaceAt(cx, cz)
   STRUCT.towerGround = s
-  flatten(world, cx, cz, half + 2, s)
+  flatten(world, cx, cz, half + 2, s, 40, B.BRICK)   // v4：塔前石砖广场（与十字大道相接）
   fill(world, cx - half, s + 1, cz - half, cx + half, s + 24, cz + half, B.BRICK)
   fill(world, cx - half + 1, s + 1, cz - half + 1, cx + half - 1, s + 23, cz + half - 1, B.AIR)
   for (const dx of [-half, half]) for (const dz of [-half, half])
@@ -99,70 +82,7 @@ function buildOreRoom(world) {
   STRUCT.lights.push([cx, floorY + 3, cz])
 }
 
-function buildStonehenge(world) {
-  const cx = POS.HENGE_C.x, cz = POS.HENGE_C.z
-  const s = world.surfaceAt(cx, cz)
-  STRUCT.hengeGround = s
-  flatten(world, cx, cz, 10, s)
-  for (let k = 0; k < 8; k++) {
-    const ang = (k / 8) * Math.PI * 2
-    const px = Math.round(cx + Math.cos(ang) * 7)
-    const pz = Math.round(cz + Math.sin(ang) * 7)
-    fill(world, px, s + 1, pz, px, s + 5, pz, B.STONE)
-    world.setRaw(px, s + 6, pz, B.BRICK)
-  }
-  world.setRaw(cx, s, cz, B.BRICK)
-}
-
-function buildEarthRoom(world) {
-  const cx = POS.HENGE_C.x, cz = POS.HENGE_C.z
-  const s = STRUCT.hengeGround
-  const p1 = s - POS.EARTH_PLANK_DEPTH
-  const p2 = p1 - 3
-  const p3 = p2 - 3
-  world.setRaw(cx, p1, cz, B.PLANK)
-  world.setRaw(cx, p2, cz, B.PLANK)
-  world.setRaw(cx, p3, cz, B.PLANK)
-  const top = p3 - 1
-  const bottom = top - 3
-  fill(world, cx - 2, bottom - 1, cz - 2, cx + 2, top, cz + 2, B.STONE)
-  fill(world, cx - 2, bottom, cz - 2, cx + 2, top, cz + 2, B.AIR)
-  fill(world, cx - 2, bottom - 1, cz - 2, cx + 2, bottom - 1, cz + 2, B.PLANK)
-  const chest = [cx + 1, bottom, cz]
-  world.setRaw(chest[0], chest[1], chest[2], B.CHEST)
-  STRUCT.earthRoom = { chest, planks: [[cx, p1, cz], [cx, p2, cz], [cx, p3, cz]] }
-  STRUCT.lights.push([cx, bottom + 2, cz])
-}
-
-// ============ 刷怪塔 → 传送大厅（v2：楼梯取消，改无尽爬塔传送台） ============
-
-function buildSpawnerHall(world) {
-  const cx = POS.SPAWNER_C.x, cz = POS.SPAWNER_C.z, half = 7
-  const s = world.surfaceAt(cx, cz)
-  STRUCT.spawnerGround = s
-  flatten(world, cx, cz, half + 2, s, 90)
-
-  // 装饰高塔外壳（实心封顶，只是地标）
-  fill(world, cx - half, s + 1, cz - half, cx + half, s + 80, cz + half, B.BRICK)
-  // 底层大厅掏空（高 6）
-  fill(world, cx - half + 1, s + 1, cz - half + 1, cx + half - 1, s + 6, cz + half - 1, B.AIR)
-  fill(world, cx - half + 1, s, cz - half + 1, cx + half - 1, s, cz + half - 1, B.BRICK)
-  // 金角
-  for (const dx of [-half, half]) for (const dz of [-half, half])
-    fill(world, cx + dx, s + 1, cz + dz, cx + dx, s + 81, cz + dz, B.GOLD)
-  // 东门（朝城镇）
-  fill(world, cx + half, s + 1, cz - 1, cx + half, s + 3, cz + 1, B.AIR)
-  // 每 10 层装饰金环（外观提示这是千层塔）
-  for (let f = 10; f <= 80; f += 10) {
-    for (const dx of [-half, half]) {
-      world.setRaw(cx + dx, s + f, cz - 2, B.GOLD); world.setRaw(cx + dx, s + f, cz + 2, B.GOLD)
-    }
-  }
-  // 传送台：大厅中央 3×3 金砖
-  fill(world, cx - 1, s, cz - 1, cx + 1, s, cz + 1, B.GOLD)
-  STRUCT.teleporterPad = [cx, s + 1, cz]
-  STRUCT.lights.push([cx, s + 4, cz])
-}
+// （v4：buildStonehenge/buildEarthRoom → island/henge.js，buildSpawnerHall → island/spawnerIsle.js）
 
 // ============ 第二章建筑 ============
 

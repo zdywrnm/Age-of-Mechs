@@ -9,6 +9,7 @@ export class ProjectileManager {
     this.player = player
     this.monsters = null       // main 注入（友方弹命中判定用）
     this.onImpact = null       // (pos, kind) => {} 命中特效钩子
+    this.isSafeZone = null     // v4：敌方弹进入安全区即销毁（main 注入）
     this.list = []
   }
   get world() { return this.ctx.world }
@@ -26,6 +27,7 @@ export class ProjectileManager {
     this.list.push({
       pos: pos.clone(), dir: dir.clone(), speed, dmg, mesh, t: 0,
       friendly: !!opts.friendly, radius: opts.radius || 0,
+      enemyRadius: opts.enemyRadius || 0,   // v4：敌方弹对玩家溅射半径
       pierce: !!opts.pierce, kind: opts.kind || 'spark', homing: !!opts.homing, hitSet: new Set(),
     })
   }
@@ -73,6 +75,11 @@ export class ProjectileManager {
       a.pos.addScaledVector(a.dir, a.speed * dt)
       a.mesh.position.copy(a.pos)
       let dead = a.t > 3.5
+      // v4 安全区：敌方弹不得入城
+      if (!dead && !a.friendly && this.isSafeZone && this.isSafeZone(a.pos.x, a.pos.z)) {
+        this.onImpact && this.onImpact(a.pos, a.kind)
+        dead = true
+      }
       // 撞方块
       if (!dead && this.world.isSolid(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z))) {
         this.explode(a); dead = true
@@ -99,13 +106,22 @@ export class ProjectileManager {
           }
         }
       } else if (!dead && !a.friendly && !p.dead) {
-        // 怪物弹：命中玩家
-        const hw = p.ent.w / 2 + 0.15
-        if (Math.abs(a.pos.x - p.ent.pos.x) < hw &&
-            a.pos.y > p.ent.pos.y - 0.1 && a.pos.y < p.ent.pos.y + p.ent.h + 0.1 &&
-            Math.abs(a.pos.z - p.ent.pos.z) < hw) {
-          p.takeDamage(a.dmg, a.pos)
-          dead = true
+        // 怪物弹：命中玩家。爆炸炮弹(enemyRadius>0)做近炸引信 + 距离衰减溅射
+        if (a.enemyRadius > 0) {
+          const d = Math.hypot(a.pos.x - p.ent.pos.x, a.pos.y - (p.ent.pos.y + p.ent.h * 0.5), a.pos.z - p.ent.pos.z)
+          if (d < a.enemyRadius) {
+            p.takeDamage(Math.round(a.dmg * (1 - d / a.enemyRadius / 2)), a.pos)
+            this.onImpact && this.onImpact(a.pos, 'explode')
+            dead = true
+          }
+        } else {
+          const hw = p.ent.w / 2 + 0.15
+          if (Math.abs(a.pos.x - p.ent.pos.x) < hw &&
+              a.pos.y > p.ent.pos.y - 0.1 && a.pos.y < p.ent.pos.y + p.ent.h + 0.1 &&
+              Math.abs(a.pos.z - p.ent.pos.z) < hw) {
+            p.takeDamage(a.dmg, a.pos)
+            dead = true
+          }
         }
       }
       if (dead) { a.mesh.parent && a.mesh.parent.remove(a.mesh); a.mesh.geometry.dispose(); a.mesh.material.dispose(); a.remove = true }

@@ -152,7 +152,9 @@ export class MonsterManager {
   shoot(m, targetPos, speed = 14) {
     const from = new THREE.Vector3(m.ent.pos.x, m.ent.pos.y + m.h * 0.7, m.ent.pos.z)
     const dir = new THREE.Vector3(targetPos.x - from.x, targetPos.y - from.y, targetPos.z - from.z).normalize()
-    this.projectiles.spawn(from, dir, speed, m.atk, m.def.projColor)
+    // v4 变异坦克：爆炸炮弹（对玩家做范围溅射）
+    const opts = m.def.projRadius ? { enemyRadius: m.def.projRadius, size: 0.28, kind: 'explode' } : {}
+    this.projectiles.spawn(from, dir, speed, m.atk, m.def.projColor, opts)
   }
   radialBurst(m, count = 10) {
     const from = new THREE.Vector3(m.ent.pos.x, m.ent.pos.y + m.h * 0.5, m.ent.pos.z)
@@ -199,6 +201,125 @@ export class MonsterManager {
       // climb：拉升回巡航高度
       this.steer(m, m.ent.pos.x - dx * 0.3, p.ent.pos.y + 26, m.ent.pos.z - dz * 0.3, s * 1.2)
       if (m.swoopT <= 0) { m.swoopPhase = 'hover'; m.swoopT = 1.2 + Math.random() * 1.5 }
+    }
+  }
+
+  // v4 远古熊猫 brawler AI：重击 / 翻滚冲撞 / 范围震地 三技能轮转
+  brawlerAI(m, dt, dx, dz, distH) {
+    const p = this.player
+    m.slamCd = (m.slamCd ?? 8) - dt       // 翻滚冲撞冷却
+    m.quakeCd = (m.quakeCd ?? 5) - dt     // 范围震地冷却
+    m.windup = m.windup ?? 0
+    m.rolling = m.rolling ?? 0
+    const nd = distH || 1
+
+    // 翻滚冲撞进行中：直线高速冲锋
+    if (m.rolling > 0) {
+      m.rolling -= dt
+      m.group.rotation.x = (m.group.rotation.x || 0) + dt * 12   // 翻滚视觉
+      if (distH < m.w * 0.5 + 1.6) { p.takeDamage(Math.round(m.atk * 1.2), m.ent.pos); m.rolling = 0 }
+      if (m.rolling <= 0) m.group.rotation.x = 0
+      return
+    }
+    // 重击抬手预警：定身发光 0.6s 后近距离猛击
+    if (m.windup > 0) {
+      m.windup -= dt
+      m.ent.vel.x = 0; m.ent.vel.z = 0
+      m.group.traverse(o => { if (o.isMesh && o.material.emissive) o.material.emissive.setRGB(0.5, 0, 0) })
+      if (m.windup <= 0) {
+        m.group.traverse(o => { if (o.isMesh && o.material.emissive) o.material.emissive.setScalar(0) })
+        if (distH < 3) { p.takeDamage(Math.round(m.atk * 1.6), m.ent.pos); this.onHit && this.onHit(m, 0) }
+      }
+      return
+    }
+    // 范围震地：r6 全体 1×atk + 冲击环
+    if (m.quakeCd <= 0 && distH < 9) {
+      m.quakeCd = 10
+      if (distH < 6 && Math.abs(p.ent.pos.y - m.ent.pos.y) < 3) p.takeDamage(m.atk, m.ent.pos)
+      this.onBrawlerQuake && this.onBrawlerQuake(m.ent.pos)
+      return
+    }
+    // 翻滚冲撞：拉开一点距离时发动
+    if (m.slamCd <= 0 && distH > 3 && distH < 14) {
+      m.slamCd = 8
+      m.rolling = 1.2
+      m.ent.vel.x = (dx / nd) * m.speed * 3
+      m.ent.vel.z = (dz / nd) * m.speed * 3
+      return
+    }
+    // 近身：抬手重击
+    if (distH < 2.2) { m.windup = 0.6; return }
+    // 否则正常追击
+    m.ent.vel.x = (dx / nd) * m.speed
+    m.ent.vel.z = (dz / nd) * m.speed
+  }
+
+  // v4 邪恶巨龙 pillar AI：高空盘旋 + 每 5s 火焰光柱（锁位→预警→落柱）+ 穿插火球
+  pillarAI(m, dt, dx, dz, distH) {
+    const p = this.player
+    // 保持在玩家上空盘旋
+    m.patrolA = (m.patrolA || 0) + dt * 0.7
+    const hoverY = Math.max(p.ent.pos.y + 20, 140)
+    this.steer(m,
+      p.ent.pos.x + Math.cos(m.patrolA) * 14,
+      hoverY,
+      p.ent.pos.z + Math.sin(m.patrolA) * 14, m.speed)
+
+    // 火焰光柱周期
+    m.pillarCd = (m.pillarCd ?? 5) - dt
+    if (m.pillarWarn > 0) {
+      m.pillarWarn -= dt
+      if (m.pillarWarn <= 0) {
+        // 落柱：锁定点若与玩家水平距离 <3 造成 40 伤
+        const [tx, tz] = m.pillarTarget
+        if (Math.hypot(p.ent.pos.x - tx, p.ent.pos.z - tz) < 3) p.takeDamage(40, { x: tx, y: p.ent.pos.y, z: tz })
+        this.onPillar && this.onPillar(tx, tz, 'strike')
+      }
+    } else if (m.pillarCd <= 0) {
+      m.pillarCd = 5
+      m.pillarWarn = 1.2
+      m.pillarTarget = [p.ent.pos.x, p.ent.pos.z]   // 锁定当前位置
+      this.onPillar && this.onPillar(p.ent.pos.x, p.ent.pos.z, 'warn')
+    }
+
+    // 穿插普通火球
+    m.shotT -= dt
+    if (m.shotT <= 0 && distH < 30) {
+      m.shotT = 2.2
+      this.shoot(m, { x: p.ent.pos.x, y: p.ent.pos.y + 0.9, z: p.ent.pos.z }, 16)
+    }
+  }
+
+  // v4 变异装甲车 rammer AI：绕圈快速扫射 + 每 6 秒一次冲撞
+  rammerAI(m, dt, dx, dz, distH) {
+    const p = this.player
+    const nd = distH || 1
+    m.ramCd = (m.ramCd ?? 6) - dt
+    m.ramming = m.ramming ?? 0
+    if (m.ramming > 0) {
+      m.ramming -= dt
+      if (distH < m.w * 0.5 + 1.4) { p.takeDamage(18, m.ent.pos); m.ramming = 0 }
+      return
+    }
+    if (m.ramCd <= 0 && distH < 16) {
+      m.ramCd = 6; m.ramming = 1
+      m.ent.vel.x = (dx / nd) * m.speed * 2.5
+      m.ent.vel.z = (dz / nd) * m.speed * 2.5
+      return
+    }
+    // 绕行 + 扫射小弹
+    m.strafeT = (m.strafeT ?? 0) - dt
+    if (m.strafeT <= 0) { m.strafeT = 2 + Math.random() * 2; if (Math.random() < 0.5) m.strafeDir *= -1 }
+    const tX = -(dz / nd) * m.strafeDir, tZ = (dx / nd) * m.strafeDir
+    const toward = distH > 8 ? 0.6 : (distH < 5 ? -0.4 : 0)
+    m.ent.vel.x = (tX * 0.8 + (dx / nd) * toward) * m.speed
+    m.ent.vel.z = (tZ * 0.8 + (dz / nd) * toward) * m.speed
+    m.shotT = (m.shotT ?? 0) - dt
+    if (m.shotT <= 0 && distH < 18) {
+      m.shotT = 0.8
+      this.projectiles.spawn(
+        new THREE.Vector3(m.ent.pos.x, m.ent.pos.y + m.h * 0.7, m.ent.pos.z),
+        new THREE.Vector3(dx / nd, 0.02, dz / nd), 16, 6, m.def.projColor)
     }
   }
 
@@ -297,6 +418,21 @@ export class MonsterManager {
         if (p.dead || stealthed) { m.state = 'idle'; m.swoopPhase = null; continue }
         this.swoopAI(m, dt, dx, dy, dz)
         if (distH > (m.aggroR || 60) * 1.8) { m.state = 'idle'; m.swoopPhase = null }
+      } else if (m.state === 'chase' && m.def.pillar) {
+        // 邪恶巨龙：高空盘旋 + 火焰光柱（预警后落柱）+ 普通火球
+        if (p.dead || stealthed) { m.state = 'idle'; continue }
+        this.pillarAI(m, dt, dx, dz, distH)
+        if (distH > (m.aggroR || 40) * 2.5) m.state = 'idle'
+      } else if (m.state === 'chase' && m.def.brawler) {
+        // 远古熊猫：三技能格斗 boss
+        if (p.dead || stealthed) { m.state = 'idle'; m.ent.vel.x = m.ent.vel.z = 0; continue }
+        this.brawlerAI(m, dt, dx, dz, distH)
+        if (distH > (m.aggroR || CFG.AGGRO_RANGE * 2) * 3) m.state = 'idle'
+      } else if (m.state === 'chase' && m.def.rammer) {
+        // 变异装甲车：绕行扫射 + 周期冲撞
+        if (p.dead || stealthed) { m.state = 'idle'; m.ent.vel.x = m.ent.vel.z = 0; continue }
+        this.rammerAI(m, dt, dx, dz, distH)
+        if (distH > CFG.AGGRO_RANGE * 3) m.state = 'idle'
       } else if (m.state === 'chase') {
         if (p.dead || stealthed) { m.state = 'idle'; m.ent.vel.x = m.ent.vel.z = 0; if (m.ent.noGravity) m.ent.vel.y = 0; continue }
         const nd = dist3 || 1
@@ -403,6 +539,12 @@ export class MonsterManager {
         }
       }
 
+      // v4 安全区：敌怪不得踏入城内（不生成/不追击/不穿门）；玩家进城则脱战
+      if (this.isSafeZone && this.isSafeZone(m.ent.pos.x + m.ent.vel.x * 0.4, m.ent.pos.z + m.ent.vel.z * 0.4)) {
+        m.ent.vel.x = 0; m.ent.vel.z = 0
+        if (m.state === 'chase' && this.isSafeZone(p.ent.pos.x, p.ent.pos.z)) m.state = 'idle'
+      }
+
       moveEntity(this.world, m.ent, dt)
       if (m.ent.pos.y < -5) { this.kill(m); continue }
 
@@ -443,8 +585,9 @@ export class MonsterManager {
         y = this.world.surfaceAt(Math.floor(x), Math.floor(z)) + 1
       }
       if (Math.hypot(x - p.ent.pos.x, z - p.ent.pos.z) < 12) continue
+      if (this.isSafeZone && this.isSafeZone(x, z)) continue   // v4 安全区不刷怪
       const type = pool.types[Math.floor(Math.random() * pool.types.length)]
-      this.spawn(type, x + 0.5, y, z + 0.5, { floor: pool.floor || 1, tag: pool.tag })
+      this.spawn(type, x + 0.5, y, z + 0.5, { floor: pool.floor || 1, tag: pool.tag, ...(pool.opts && pool.opts[type]) })
     }
   }
 }

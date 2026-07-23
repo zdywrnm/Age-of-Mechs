@@ -1,6 +1,6 @@
-// 作者小岛木屋商店（设定：出售各种产品、水果、海货；货币=齿轮钱包）
+// 商店界面（v4：支持多目录——作者小岛老店 + 城内四类商铺；货币=齿轮钱包）
 import { BLOCKS } from '../blocks.js'
-import { ITEMS, SHOP_GOODS } from '../game/items.js'
+import { ITEMS, SHOP_CATALOGS } from '../game/items.js'
 
 export class ShopUI {
   constructor(player, hud, controls, onChanged) {
@@ -28,7 +28,9 @@ export class ShopUI {
     el.addEventListener('mousedown', e => e.stopPropagation())
   }
 
-  toggle(force) {
+  toggle(force, catalogId) {
+    if (catalogId) this.catalogId = catalogId
+    if (!this.catalogId) this.catalogId = 'island'
     this.open = force !== undefined ? force : !this.open
     this.el.style.display = this.open ? 'flex' : 'none'
     this.controls.enabled = !this.open && this.controls.isLocked()
@@ -37,12 +39,14 @@ export class ShopUI {
   }
 
   render() {
+    const catalog = SHOP_CATALOGS[this.catalogId] || SHOP_CATALOGS.island
+    this.el.querySelector('.inv-tab').textContent = catalog.title
     this.el.querySelector('.shop-wallet').textContent = `⚙️ 我的齿轮：${this.player.gears}`
     const body = this.el.querySelector('.inv-body')
     body.innerHTML = ''
     const list = document.createElement('div')
     list.className = 'craft-list'
-    for (const g of SHOP_GOODS) {
+    for (const g of catalog.goods) {
       const def = ITEMS[g.id]
       const name = g.name || def?.name
       const icon = g.icon || def?.icon
@@ -67,7 +71,7 @@ export class ShopUI {
     }
     const tip = document.createElement('div')
     tip.className = 'equip-row'
-    tip.textContent = '作者：「花掉的齿轮不影响等级哦——等级看的是你一共收集过多少！」'
+    tip.textContent = (SHOP_CATALOGS[this.catalogId] || SHOP_CATALOGS.island).tip || ''
     body.appendChild(list)
     body.appendChild(tip)
   }

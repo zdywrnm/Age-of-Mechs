@@ -12,11 +12,14 @@ import { generateArena, ARENA } from './worldgen/arena.js'
 import { DimensionManager } from './game/dimensions.js'
 import { Controls } from './player/controls.js'
 import { Player } from './player/player.js'
-import { Interaction } from './player/interaction.js'
+import { Interaction, raycastVoxel, rayAABB } from './player/interaction.js'
+import { ITEMS } from './game/items.js'
 import { MonsterManager } from './entities/monsters.js'
 import { ProjectileManager } from './entities/projectiles.js'
 import { DropManager } from './entities/drops.js'
-import { AuthorNPC } from './entities/npc.js'
+import { AuthorNPC, Villager } from './entities/npc.js'
+import { zoneAt } from './game/zones.js'
+import { ZoneFx } from './game/zoneFx.js'
 import { MysteryPickupManager } from './entities/mysteryPickup.js'
 import { BoatManager } from './entities/boat.js'
 import { FluidSim } from './game/fluids.js'
@@ -125,7 +128,7 @@ async function boot(newConfig) {
   await tick()
   loading.done()
   if (save?.migratedFromV1) {
-    setTimeout(() => alert('检测到第一章的存档！你的等级、齿轮和任务进度都带过来了。\n世界变大了，位置回到了出生点～'), 100)
+    setTimeout(() => alert('欢迎回来！初始城镇变成了六区大岛（城市/竹林/巨石阵/群山/鬼城/森林）。\n你的等级、齿轮、任务、装备、宠物、其他大陆的建造都完整保留了。\n只有旧主岛上的方块改动被清理，位置回到了城南出生点～'), 100)
   }
   startGame(robotConfig, save)
 }
@@ -137,7 +140,7 @@ function startGame(robotConfig, save) {
   setupTouch(controls)           // 触屏设备：虚拟摇杆+视角拖动+按键组
   hud.setCamera(camera)
   const dialog = new Dialog(controls)
-  const flags = Object.assign({ portalCharged: false, fireSeaCleared: false, endingSeen: false }, save?.flags)
+  const flags = Object.assign({ portalCharged: false, fireSeaCleared: false, endingSeen: false, ancientPandaDefeated: false, ghostDragonDefeated: false }, save?.flags)
   const mainGroup = dims.get('main').group
 
   const player = new Player(scene, robotConfig, STRUCT.spawnPoint)
@@ -159,9 +162,36 @@ function startGame(robotConfig, save) {
     }
   }
 
+  // —— v4 红眼睛：装备后 G/🔫 变即时激光（射程40 命中第一个敌人，卸下自动恢复机甲炮）——
+  function fireLaser() {
+    const def = ITEMS[player.equipment.ranged]
+    const L = def?.laser || { dmg: 100, range: 40, cd: 0.9 }
+    player.shootCooldown = L.cd
+    const eye = player.headPos(new THREE.Vector3())
+    const dir = controls.forward(new THREE.Vector3())
+    const hitBlock = raycastVoxel(ctx.world, eye, dir, L.range)   // 墙壁遮挡
+    let bd = hitBlock ? hitBlock.dist : L.range
+    let best = null
+    for (const m of monsters.list) {
+      if (m.dead) continue
+      const min = { x: m.ent.pos.x - m.w / 2, y: m.ent.pos.y, z: m.ent.pos.z - m.w / 2 }
+      const max = { x: m.ent.pos.x + m.w / 2, y: m.ent.pos.y + m.h, z: m.ent.pos.z + m.w / 2 }
+      const t = rayAABB(eye, dir, min, max)
+      if (t !== null && t < bd) { bd = t; best = m }
+    }
+    const end = eye.clone().addScaledVector(dir, bd)
+    const from = eye.clone().addScaledVector(dir, 0.5); from.y -= 0.15
+    fx.beam(from, end, '#ff2020')
+    fx.burst(end, ['#ff4040', '#ffb0a0'], { count: 8, speed: 4, up: 2, size: 0.12, additive: true })
+    if (best) monsters.hitMonster(best, Math.round(L.dmg * player.damageMult()), player.ent.pos)
+    player.swing()
+    audio.sfx('laser')
+  }
+
   // —— 远程炮：G 键 / 触屏「炮」发射，弹药随齿轮升级 ——
   function fireCannon() {
     if (!player.canShoot()) return
+    if (player.equipment.ranged) { fireLaser(); return }
     const w = player.weaponTier()
     player.shootCooldown = w.cd
     const eye = player.headPos(new THREE.Vector3())
@@ -186,6 +216,10 @@ function startGame(robotConfig, save) {
     audio.sfx('shoot')
   }
   monsters.hud = hud
+  // v4 安全区注入：城内不刷怪/不追击/敌弹销毁
+  const inSafeZone = (x, z) => dims.active === 'main' && !!(zoneAt(x, z)?.safe)
+  monsters.isSafeZone = inSafeZone
+  projectiles.isSafeZone = inSafeZone
   const drops = new DropManager(() => entityGroup, ctx, player)
   const pets = new PetManager(() => entityGroup, ctx, player, monsters)
   const boats = new BoatManager(mainGroup, ctx, player)
@@ -193,6 +227,7 @@ function startGame(robotConfig, save) {
   fluids.setWorld(ctx.world)
   const pickups = new MysteryPickupManager(player)
   const dayNight = new DayNight(scene, { hemi, sun, fog: scene.fog })
+  const zoneFx = new ZoneFx({ scene, fx, audio, hud, player, dims, ctx: { STRUCT, active: () => dims.active } })
 
   // NPC：作者①（塔）、作者②（木屋商店）、地下族人
   const npc = new AuthorNPC(mainGroup, STRUCT.npcPos)
@@ -200,13 +235,65 @@ function startGame(robotConfig, save) {
   const folkNpcs = STRUCT.undercity.folk.map((pos, i) =>
     new AuthorNPC(mainGroup, pos, '⛏ 地下族人', { head: '#8b939d', body: '#6a7078', arm: '#787f88', leg: '#5a5f66', headType: 'cube', eyeStyle: 'round', wide: false }))
 
-  // 宝箱（五个神秘齿轮走箱子）
+  // —— v4 城市 NPC：4 商贩（站柜台）+ 16 流动居民（大道/广场漫步）——
+  const RESIDENT_NAMES = ['铁蛋', '螺丝', '小齿轮', '阿铜', '闪闪', '嘟嘟', '钢镚', '小马达',
+    '布丁', '图纸', '扳手', '小灯泡', '贝壳', '咕噜', '天线', '小履带']
+  const RESIDENT_LINES = [
+    ['北边的大山里全是矿！', '听说还有会发光的稀有宝石，钻石红宝石蓝宝石都有！'],
+    ['西边竹林最近来了好多大熊猫！', '毛茸茸的，就是竹林深处的神殿有点吓人……'],
+    ['东边的鬼城晚上会传来奇怪的声音……', '还有喷火的大家伙在天上转！别一个人去！'],
+    ['南边森林里有座老神殿。', '我爷爷说二层藏着不得了的宝贝。'],
+    ['城里绝对安全，怪物进不来！', '但是城墙外面……可就说不准啦。'],
+    ['广场的井口通地下之城！', '跳下去有水垫接着，一点都不疼！'],
+    ['刷怪塔搬到西边海上的小岛了！', '出西门过石桥就到，一共一千层哦！'],
+    ['作者之塔就在城中心！', '有任务不知道做什么，就去找作者聊聊！'],
+  ]
+  const vendorNpcs = []
+  const residentNpcs = []
+  if (STRUCT.town) {
+    for (const v of STRUCT.town.vendors) {
+      const n = new Villager(mainGroup, v.pos, { label: v.label, face: v.face })
+      n.catalog = v.catalog
+      vendorNpcs.push(n)
+    }
+    STRUCT.town.residents.forEach((r, i) => {
+      residentNpcs.push(new Villager(mainGroup, r.pos, { label: `🤖 ${RESIDENT_NAMES[i % RESIDENT_NAMES.length]}`, patch: r.patch }))
+    })
+  }
+
+  // 宝箱（五个神秘齿轮走箱子；齿轮箱用稳定 id，坐标变了存档也不作废）
   const chests = new ChestRegistry()
-  chests.register(STRUCT.oreRoom.chest, 'ore')
-  chests.register(STRUCT.earthRoom.chest, 'earth')
-  chests.register(STRUCT.palaceChest, 'tide')
-  chests.register(STRUCT.lightChest, 'light')
-  chests.register(STRUCT.forbiddenChest, 'mystery')
+  chests.register(STRUCT.oreRoom.chest, { gear: 'ore' }, { id: 'gear:ore' })
+  chests.register(STRUCT.earthRoom.chest, { gear: 'earth' }, { id: 'gear:earth' })
+  chests.register(STRUCT.palaceChest, { gear: 'tide' }, { id: 'gear:tide' })
+  chests.register(STRUCT.lightChest, { gear: 'light' }, { id: 'gear:light' })
+  chests.register(STRUCT.forbiddenChest, { gear: 'mystery' }, { id: 'gear:mystery' })
+  if (STRUCT.town?.wareChest) {
+    chests.register(STRUCT.town.wareChest,
+      { blocks: [[B.WOOD, 20], [B.STONE, 20], [B.BRICK, 10]], toast: '🧰 仓库福利：木头×20 石头×20 石砖×10！' },
+      { id: 'town:warehouse' })
+  }
+  // v4 竹林隐藏图腾宝箱 → 神秘图腾（重复获得转 25 齿轮，逻辑在 grantArtifact）
+  if (STRUCT.bambooChest) {
+    chests.register(STRUCT.bambooChest, { grant: () => grantArtifact() }, { id: 'bamboo:totem' })
+  }
+  // v4 竹林神殿三层宝藏（远古熊猫死后开放）
+  if (STRUCT.bambooTreasure) {
+    chests.register(STRUCT.bambooTreasure,
+      { blocks: [[B.GOLD, 6], [B.ORE_DIAMOND, 4], [B.CODE, 3]], banner: ['💎 竹林秘藏！', '金子×6 钻石×4 代码矿石×3！'] },
+      { id: 'bamboo:treasure' })
+  }
+  // v4 森林神殿二层大箱 → 唯一「红眼睛」远程武器（装上即替代机甲炮）
+  if (STRUCT.forestChest) {
+    chests.register(STRUCT.forestChest, {
+      grant: () => {
+        if (player.items.get('red_eye')) { player.addGears(20); hud.toast('👁️ 你已经有红眼睛了，化作 20 齿轮！'); return }
+        player.addItem('red_eye')
+        player.equipment.ranged = 'red_eye'
+        hud.banner('👁️ 获得远古武器 · 红眼睛！', '瞬间射出红色激光（100 伤害）！现在 G/🔫 变成激光，背包里可卸下')
+      },
+    }, { id: 'forest:redeye' })
+  }
 
   const towerCtrl = new TowerV2(dims, monsters, hud)
   const portals = new PortalSystem(dims, player, hud, flags)
@@ -251,6 +338,7 @@ function startGame(robotConfig, save) {
     onBedUse: () => useBed(),
     onBlockMined: (id, x, y, z) => {
       quests.onMined(id)
+      if (id === B.TOTEM_BLOCK) grantArtifact()   // v4：矿山图腾节点，挖到即得神器
       fluids.notifyRemoved(x, y, z)
       // 挖掘碎屑（同色小方块四溅）
       fx.burst(new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5), blockColors(id),
@@ -265,6 +353,21 @@ function startGame(robotConfig, save) {
   // Interaction 的放置回调签名对齐（带坐标）
   const origOnRightDown = interaction.onRightDown.bind(interaction)
 
+  // —— v4 神秘图腾发放（唯一神器；重复获得 → 25 齿轮）——
+  function grantArtifact() {
+    if (player.items.get('totem_artifact')) {
+      player.addGears(25)
+      hud.toast('🗿 图腾与你已有的那尊产生共鸣，化作 25 个齿轮！')
+      doSave()
+      return
+    }
+    player.addItem('totem_artifact')
+    player.equipment.artifact = 'totem_artifact'
+    hud.banner('🗿 获得神器 · 神秘图腾！', '灰色的身躯、红色的边框、两双红眼……你的所有伤害翻倍！')
+    audio.sfx('fanfare')
+    doSave()
+  }
+
   // —— 齿轮授予 ——
   function grantGear(kind) {
     const info = MYSTERY_GEARS[kind]
@@ -274,7 +377,22 @@ function startGame(robotConfig, save) {
     quests.onGearGot(kind)
     doSave()
   }
-  chests.onOpen = grantGear
+  // 宝箱奖励分发（v2：齿轮箱走原流程，普通箱按 reward 结构发放）
+  chests.onOpen = c => {
+    const r = c.reward
+    if (r.gear) { grantGear(r.gear); return }   // grantGear 自带 banner+音效+存档
+    if (r.gears) {
+      const leveled = player.addGears(r.gears)
+      if (leveled) { hud.toast(`⭐ 升级！现在是 ${player.level()} 级！`); audio.sfx('level') }
+    }
+    if (r.items) for (const [itemId, n] of r.items) player.addItem(itemId, n)
+    if (r.blocks) for (const [blockId, n] of r.blocks) player.addBlock(blockId, n)
+    if (typeof r.grant === 'function') r.grant()
+    if (r.banner) hud.banner(r.banner[0], r.banner[1] || '')
+    else if (r.toast) hud.toast(r.toast)
+    audio.sfx('chest')
+    doSave()
+  }
   chests.onEmpty = () => hud.toast('箱子是空的～')
   pickups.onPickup = grantGear
 
@@ -295,6 +413,25 @@ function startGame(robotConfig, save) {
       player.addItem('peng_wings')
       hud.banner('🐦 你打败了鲲鹏！！', '获得 🧪鹏之药水 + 🪽鲲鹏之翼！打开背包（B）使用/装备！')
     }
+    // v4 远古熊猫：置 flag + 直接收服熊猫宠物（固定 800/45，非坐骑）+ 打开神殿三层封板
+    if (m.type === 'ancientpanda') {
+      flags.ancientPandaDefeated = true
+      pets.roster.push({ type: 'panda', name: '熊猫伙伴', maxHp: 800, hp: 800, atk: 45, mountable: false })
+      if (STRUCT.bambooSeal) for (const [x, y, z] of STRUCT.bambooSeal) ctx.world.set(x, y, z, B.AIR, true)
+      hud.banner('🐼 远古熊猫被你打败了！', '获得唯一的熊猫伙伴宠物！神殿三层的宝藏也开放了！')
+      audio.sfx('fanfare')
+      doSave()
+    }
+    // v4 邪恶巨龙：置 flag + 首杀大礼
+    if (m.type === 'ghostdragon') {
+      flags.ghostDragonDefeated = true
+      player.addGears(100)
+      player.addBlock(B.GOLD, 8); player.addBlock(B.CODE, 4)
+      player.addBlock(B.ORE_RUBY, 2); player.addBlock(B.ORE_SAPPHIRE, 2)
+      hud.banner('🐉 邪恶巨龙陨落！', '鬼城的天空恢复了平静！获得 100 齿轮 + 金子/代码/红蓝宝石！')
+      audio.sfx('fanfare')
+      doSave()
+    }
     pets.tryCapture(m)
   }
   monsters.onExplode = pos => {
@@ -310,6 +447,28 @@ function startGame(robotConfig, save) {
   monsters.onHit = (m2, dmg) => {
     fx.burst(new THREE.Vector3(m2.ent.pos.x, m2.ent.pos.y + m2.h * 0.6, m2.ent.pos.z),
       '#ffffff', { count: 4, speed: 2.2, up: 1.6, size: 0.09, additive: true })
+  }
+  // v4 邪恶巨龙火焰光柱：预警红环 → 落柱火焰
+  monsters.onPillar = (tx, tz, phase) => {
+    const gy = ctx.world.surfaceAt(Math.floor(tx), Math.floor(tz)) + 1
+    const base = new THREE.Vector3(tx, gy, tz)
+    if (phase === 'warn') {
+      fx.ring(base, '#ff2020', { maxR: 3.2, life: 1.2 })   // 地面红色预警环
+    } else {
+      // 落柱：竖直火焰柱 + 爆裂 + 震屏
+      fx.cone(base, new THREE.Vector3(0, 1, 0), ['#ff2020', '#ff6a1a', '#ffd24a'], { count: 30, speed: 14, spread: 0.15, size: 0.32, gravity: -4 })
+      fx.burst(base, ['#ff3020', '#ffb040'], { count: 20, speed: 8, up: 6, size: 0.24, additive: true })
+      fx.ring(base, '#ff8a3a', { maxR: 4, life: 0.4 })
+      fx.shake(0.5); audio.sfx('pillar')
+    }
+  }
+  // v4 远古熊猫范围震地：冲击环 + 土块 + 震屏
+  monsters.onBrawlerQuake = pos => {
+    const p = new THREE.Vector3(pos.x, pos.y, pos.z)
+    fx.ring(p, '#c8c4bc', { maxR: 6 })
+    fx.ring(p, '#7a2020', { maxR: 4, life: 0.4 })
+    fx.burst(p.clone().setY(p.y + 0.2), ['#8a6142', '#5f4029', '#c8c4bc'], { count: 22, speed: 6, up: 5, size: 0.2 })
+    fx.shake(0.5); audio.sfx('quake')
   }
   // 鲲鹏俯冲：风压线
   monsters.onSwoopStart = m2 => {
@@ -388,6 +547,19 @@ function startGame(robotConfig, save) {
   }
   // 主世界常驻 boss（目标未完成才出现）
   function spawnMainBosses() {
+    // v4 远古熊猫（竹林神殿二层 Boss 场；每档只出现一次）
+    if (!flags.ancientPandaDefeated && STRUCT.bambooBoss) {
+      monsters.spawn('ancientpanda', STRUCT.bambooBoss[0], STRUCT.bambooBoss[1], STRUCT.bambooBoss[2], {
+        boss: true, bossName: '远古熊猫', hp: 3200, atk: 22, gears: 30, tag: 'mainboss', aggroR: 14,
+      })
+    }
+    // v4 邪恶巨龙（鬼城上空盘旋；每档只出现一次）
+    if (!flags.ghostDragonDefeated) {
+      monsters.spawn('ghostdragon', POS.GHOST_C.x, 150, POS.GHOST_C.z, {
+        boss: true, bossName: '邪恶巨龙', hp: 10000, atk: 30, gears: 100, tag: 'mainboss',
+        patrol: { cx: POS.GHOST_C.x, cz: POS.GHOST_C.z, r: 18, y: 150 }, aggroR: 40,
+      })
+    }
     if (!player.hasGear('tide')) {
       monsters.spawn('seaguardian', POS.SEA_PALACE.x + 0.5, 28, POS.SEA_PALACE.z + 6.5, {
         boss: true, bossName: '海底守卫者', hp: 4000, atk: 26, gears: 80, tag: 'mainboss',
@@ -397,13 +569,14 @@ function startGame(robotConfig, save) {
     if (!player.pengPotion) {
       monsters.spawn('kunpeng', POS.KUNPENG_AIR.x, POS.KUNPENG_AIR.y, POS.KUNPENG_AIR.z, {
         boss: true, bossName: '鲲鹏', hp: 5000, atk: 24, gears: 80, tag: 'mainboss',
-        // 环游整个主世界的航线：深海 → 收服大陆 → 城镇北海域 → 作者小岛，循环
+        // 环游整个主世界的航线：深海 → 收服大陆 → 主岛外海 → 作者小岛，循环
+        // （v4：主岛段改走外海，避开北部矿峰空域）
         patrol: {
           path: [
             [POS.KUNPENG_AIR.x, POS.KUNPENG_AIR.z],
             [POS.TAME_LAND.x + 40, POS.TAME_LAND.z],
-            [POS.TOWER_C.x + 60, 64],
-            [POS.TOWER_C.x - 60, 90],
+            [200, 40],
+            [40, 60],
             [POS.HUT.x, POS.HUT.z + 40],
             [POS.SEA_PALACE.x - 60, POS.SEA_PALACE.z - 30],
           ],
@@ -429,9 +602,18 @@ function startGame(robotConfig, save) {
   // 环境刷怪池（主世界）
   monsters.poolsEnabled = true
   monsters.spawnPools = [
-    { tag: 'plains', points: [[110, 148], [146, 150], [108, 110], [150, 108]], types: ['spider', 'brute'], max: CFG.PLAINS_MAX, interval: CFG.PLAINS_SPAWN_INTERVAL, timer: 5, floor: 1, intervalMult: () => dayNight.isNight() ? 0.4 : 1 },
+    // v4：plains 点移到六区之间的野地（城墙外，不落任何区）
+    { tag: 'plains', points: [[86, 100], [180, 90], [90, 166], [176, 172]], types: ['spider', 'brute'], max: CFG.PLAINS_MAX, interval: CFG.PLAINS_SPAWN_INTERVAL, timer: 5, floor: 1, intervalMult: () => dayNight.isNight() ? 0.4 : 1 },
+    // v4 竹林：野生被动大熊猫
+    { tag: 'bamboo', points: [[POS.BAMBOO_C.x - 12, POS.BAMBOO_C.z], [POS.BAMBOO_C.x + 10, POS.BAMBOO_C.z - 8], [POS.BAMBOO_C.x, POS.BAMBOO_C.z + 12], [POS.BAMBOO_C.x + 8, POS.BAMBOO_C.z + 6]], types: ['panda'], max: 5, interval: 14, timer: 4, floor: 1 },
+    // v4 矿山：夜行怪
+    { tag: 'mountains', points: [[POS.MOUNT_C.x - 20, POS.MOUNT_C.z], [POS.MOUNT_C.x + 20, POS.MOUNT_C.z + 6], [POS.MOUNT_C.x, POS.MOUNT_C.z - 10]], types: ['spider', 'brute', 'archer'], max: 4, interval: 16, timer: 8, floor: 6, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
+    // v4 鬼城：变异载具 + 鬼怪（坦克/装甲车定值血量攻击）
+    { tag: 'ghost', points: [[POS.GHOST_C.x - 10, POS.GHOST_C.z - 10], [POS.GHOST_C.x + 12, POS.GHOST_C.z + 8], [POS.GHOST_C.x, POS.GHOST_C.z + 14], [POS.GHOST_C.x + 8, POS.GHOST_C.z - 12]], types: ['tank', 'apc', 'demon'], max: 5, interval: 18, timer: 10, floor: 12, opts: { tank: { hp: 400, atk: 24, gears: 6 }, apc: { hp: 180, atk: 12, gears: 4 } } },
+    // v4 森林：高密刷怪
+    { tag: 'forest', points: [[POS.FOREST_C.x - 16, POS.FOREST_C.z], [POS.FOREST_C.x + 16, POS.FOREST_C.z + 8], [POS.FOREST_C.x - 8, POS.FOREST_C.z + 16], [POS.FOREST_C.x + 10, POS.FOREST_C.z - 8]], types: ['spider', 'brute', 'archer'], max: 6, interval: 12, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
     { tag: 'ocean', points: [[240, 98, 300], [200, 97, 360], [340, 96, 340], [220, 98, 250], [420, 97, 320]], types: ['shark', 'octopus', 'fish', 'crab'], max: 5, interval: 15, timer: 8, floor: 3 },
-    { tag: 'sky', points: [[148, 132, 198], [300, 135, 240], [396, 130, 180], [128, 132, 300]], types: ['bird', 'angel'], max: 3, interval: 25, timer: 12, floor: 3 },
+    { tag: 'sky', points: [[128, 135, 20], [300, 135, 240], [396, 130, 180], [128, 132, 300]], types: ['bird', 'angel'], max: 3, interval: 25, timer: 12, floor: 3 },
     { tag: 'tame', points: [[366, 180], [420, 215], [396, 230], [430, 185], [370, 220]], types: ['brute', 'spider', 'crab', 'archer'], max: 4, interval: 18, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
   ]
   // 池子只在主世界生效
@@ -492,6 +674,13 @@ function startGame(robotConfig, save) {
   // —— 地标（指南针/小地图共用）——
   const POIS = [
     { x: POS.TOWER_C.x, z: POS.TOWER_C.z, icon: '🗼', label: '作者之塔' },
+    // v4 六区
+    { x: POS.BAMBOO_C.x, z: POS.BAMBOO_C.z, icon: '🎋', label: '竹林' },
+    { x: POS.HENGE_C.x, z: POS.HENGE_C.z, icon: '🗿', label: '巨石阵' },
+    { x: POS.MOUNT_C.x, z: POS.MOUNT_C.z, icon: '⛰️', label: '矿石群山' },
+    { x: POS.GHOST_C.x, z: POS.GHOST_C.z, icon: '👻', label: '鬼城遗址' },
+    { x: POS.FOREST_C.x, z: POS.FOREST_C.z, icon: '🌲', label: '森林' },
+    { x: POS.SPAWNER_C.x, z: POS.SPAWNER_C.z, icon: '🏯', label: '刷怪塔小岛' },
     { x: POS.HUT.x, z: POS.HUT.z, icon: '🏠', label: '作者小岛' },
     { x: POS.TAME_LAND.x, z: POS.TAME_LAND.z, icon: '🌴', label: '收服大陆' },
     { x: POS.SEA_PALACE.x, z: POS.SEA_PALACE.z, icon: '🌊', label: '深海' },
@@ -640,7 +829,7 @@ function startGame(robotConfig, save) {
         const evil = m.def.tags.includes('邪恶类')
         m.stunT = evil ? 2.5 : 1
         if (evil) {
-          monsters.hitMonster(m, CFG.FLASH_DMG, null); n++
+          monsters.hitMonster(m, Math.round(CFG.FLASH_DMG * player.damageMult()), null); n++   // v4：图腾倍率
           fx.burst(new THREE.Vector3(m.ent.pos.x, m.ent.pos.y + m.h * 0.6, m.ent.pos.z),
             ['#ffe89a', '#fff3c4'], { count: 10, speed: 3, up: 2.5, size: 0.14, additive: true })
         }
@@ -690,8 +879,18 @@ function startGame(robotConfig, save) {
         }
         if (hutNpc.distanceTo(player.ent.pos) < 4) {
           quests.onHutTalk()
-          shopUI.toggle(true)
+          shopUI.toggle(true, 'island')
           return
+        }
+        // v4：城内商贩 → 对应商店；居民 → 闲聊（顺带六区导览）
+        for (const v of vendorNpcs) {
+          if (v.distanceTo(player.ent.pos) < 3.5) { shopUI.toggle(true, v.catalog); return }
+        }
+        for (const r of residentNpcs) {
+          if (r.distanceTo(player.ent.pos) < 3) {
+            dialog.show(RESIDENT_LINES[Math.floor(Math.random() * RESIDENT_LINES.length)])
+            return
+          }
         }
         for (const folk of folkNpcs) {
           if (folk.distanceTo(player.ent.pos) < 3) {
@@ -731,17 +930,23 @@ function startGame(robotConfig, save) {
     if (DEBUG) {
       if (code === 'KeyP') { fly = !fly; hud.toast(fly ? '🕊 飞行开' : '🚶 飞行关') }
       if (code === 'KeyN') {
+        const gy = (x, z) => ctx.world.surfaceAt(Math.floor(x), Math.floor(z)) + 1
         const spots = [
-          ['作者之塔', [80.5, STRUCT.towerGround + 1, 90.5]],
-          ['刷怪塔大厅', [STRUCT.teleporterPad[0] + 2.5, STRUCT.teleporterPad[1], STRUCT.teleporterPad[2] + 0.5]],
-          ['地狱传送门', [POS.PORTAL_HELL.x + 0.5, CFG.SEA_LEVEL + 3, POS.PORTAL_HELL.z + 3.5]],
+          ['中央城市·作者之塔', [POS.TOWER_C.x + 0.5, STRUCT.towerGround + 1, POS.TOWER_C.z + 10.5]],
+          ['竹林', [POS.BAMBOO_C.x + 0.5, gy(POS.BAMBOO_C.x, POS.BAMBOO_C.z), POS.BAMBOO_C.z + 0.5]],
+          ['巨石阵高地', [POS.HENGE_C.x + 0.5, STRUCT.hengeGround + 1, POS.HENGE_C.z + 14.5]],
+          ['矿石群山', [POS.MOUNT_C.x + 0.5, gy(POS.MOUNT_C.x, POS.MOUNT_C.z), POS.MOUNT_C.z + 0.5]],
+          ['鬼城遗址', [POS.GHOST_C.x + 0.5, gy(POS.GHOST_C.x, POS.GHOST_C.z), POS.GHOST_C.z + 0.5]],
+          ['森林', [POS.FOREST_C.x + 0.5, gy(POS.FOREST_C.x, POS.FOREST_C.z), POS.FOREST_C.z + 0.5]],
+          ['刷怪塔小岛', [STRUCT.teleporterPad[0] + 2.5, STRUCT.teleporterPad[1], STRUCT.teleporterPad[2] + 0.5]],
+          ['地狱传送门', [POS.PORTAL_HELL.x + 0.5, gy(POS.PORTAL_HELL.x, POS.PORTAL_HELL.z) + 1, POS.PORTAL_HELL.z + 3.5]],
+          ['地下之城', [POS.CORE.x - 6.5, STRUCT.undercity.floorY + 0.1, POS.CORE.z + 0.5]],
           ['作者小岛', [POS.HUT.x + 0.5, 108, POS.HUT.z - 5.5]],
           ['丛林神殿', [POS.JUNGLE_TEMPLE.x - 12.5, 110, POS.JUNGLE_TEMPLE.z + 0.5]],
           ['深海上空', [POS.KUNPENG_AIR.x, 145, POS.KUNPENG_AIR.z - 15]],
           ['海底宫殿', [POS.SEA_PALACE.x + 0.5, 30, POS.SEA_PALACE.z - 18.5]],
           ['禁地', [POS.FORBIDDEN.x + 0.5, 108, POS.FORBIDDEN.z - 14.5]],
-          ['地下之城', [POS.CORE.x - 6.5, STRUCT.undercity.floorY + 0.1, POS.CORE.z + 0.5]],
-          ['收服大陆', [250.5, 112, 150.5]],
+          ['收服大陆', [366.5, gy(366, 180), 180.5]],
         ]
         window.__tpIdx = ((window.__tpIdx ?? -1) + 1) % spots.length
         const [name, p] = spots[window.__tpIdx]
@@ -799,6 +1004,7 @@ function startGame(robotConfig, save) {
       giveBlock: (id, n) => player.addBlock(id, n),
       give: (id, n = 1) => player.addItem(id, n),
       gainGear: grantGear,
+      grantArtifact,
       frame: t => frame(t),
     }
   }
@@ -890,6 +1096,10 @@ function startGame(robotConfig, save) {
       pickups.update(dt, dims.activeDim().group)
       npc.update(dt); hutNpc.update(dt)
       for (const f of folkNpcs) f.update(dt)
+      if (dims.active === 'main') {
+        for (const v of vendorNpcs) v.update(dt, ctx.world)
+        for (const r of residentNpcs) r.update(dt, ctx.world)
+      }
       portals.update(dt)
       towerCtrl.update()
       // 世界 boss 血条（塔外）：显示最近一只已仇恨的 boss
@@ -926,6 +1136,7 @@ function startGame(robotConfig, save) {
       }
       quests.setFloor(dims.active === 'arena' ? towerCtrl.currentFloor : 0)
       dayNight.update(dt, dims.active === 'main', camera.position)
+      zoneFx.update(dt)   // v4 区域标题/鬼城雾/环境音/粒子（必须在 dayNight 之后覆盖雾）
       fluids.tick(dt)
       if (player.ent.inWater && !window.__wasInWater && player.ent.vel.y < -3) audio.sfx('splash')
       window.__wasInWater = player.ent.inWater
@@ -943,6 +1154,8 @@ function startGame(robotConfig, save) {
         if (boats.riding) prompt = null
         else if (npc.distanceTo(player.ent.pos) < 3.5) prompt = '按 E 和作者说话'
         else if (hutNpc.distanceTo(player.ent.pos) < 4) prompt = '按 E 逛作者小店'
+        else if (vendorNpcs.some(v => v.distanceTo(player.ent.pos) < 3.5)) prompt = '按 E 逛铺子'
+        else if (residentNpcs.some(r => r.distanceTo(player.ent.pos) < 3)) prompt = '按 E 和居民聊聊'
         else if (folkNpcs.some(f => f.distanceTo(player.ent.pos) < 3)) prompt = '按 E 和地下族人聊聊'
         else if (boats.nearest(player.ent.pos)) prompt = '按 E 上船'
         else {
