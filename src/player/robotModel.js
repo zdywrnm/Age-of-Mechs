@@ -1,7 +1,51 @@
-// 变形金刚模型 v2：机器人 / 小车 / 潜水艇 / 矿石装甲 / 全能 五形态
-// 细节升级：手脚/骨盆/胸核发光/背包/关节配色/车灯/螺旋桨/浮环，全形态带动画
-// 模型面朝 -Z，原点在脚底中心
+// 变形金刚模型 v3：机器人形态用 Blender 制作的 GLB（倒角硬表面机甲），
+// 其余形态（小车/潜水艇/装甲/全能叠加件）沿用盒子拼装
+// GLB 未加载完成前回退到盒子机器人 —— 模型面朝 -Z，原点在脚底中心
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+
+// —— GLB 模板（模块级加载一次，每个机器人实例克隆一份）——
+// 命名约定：节点 Torso/Head/Antenna/EyesRound/EyesVisor/ArmL/ArmR/LegL/LegR（四肢原点在关节）
+//          材质 MatHead/MatBody/MatArm/MatLeg/MatTrim/MatEye/MatCore
+let mechTemplate = null
+const mechReady = new GLTFLoader()
+  .loadAsync(import.meta.env.BASE_URL + 'models/mech.glb')
+  .then(g => { mechTemplate = g.scene })
+  .catch(e => { console.warn('机甲 GLB 加载失败，使用盒子模型兜底', e) })
+
+// 克隆模板并按配置换色/换样式，返回 { grp, nodes, mats }
+function cloneMech(cfg) {
+  const grp = mechTemplate.clone(true)
+  // 材质按名克隆（同名共享一个克隆，避免实例间串色）
+  const matMap = new Map()
+  const colorFor = {
+    MatHead: cfg.head, MatBody: cfg.body, MatArm: cfg.arm, MatLeg: cfg.leg,
+  }
+  grp.traverse(o => {
+    if (!o.isMesh) return
+    const list = Array.isArray(o.material) ? o.material : [o.material]
+    const cloned = list.map(m => {
+      if (!matMap.has(m.name)) {
+        const c = m.clone()
+        if (colorFor[m.name]) c.color.set(colorFor[m.name])
+        matMap.set(m.name, c)
+      }
+      return matMap.get(m.name)
+    })
+    o.material = Array.isArray(o.material) ? cloned : cloned[0]
+    o.castShadow = false
+  })
+  const nodes = {}
+  for (const n of ['Torso', 'Head', 'Antenna', 'EyesRound', 'EyesVisor', 'ArmL', 'ArmR', 'LegL', 'LegR']) {
+    nodes[n] = grp.getObjectByName(n)
+  }
+  // 样式开关
+  if (nodes.Antenna) nodes.Antenna.visible = cfg.headType === 'antenna'
+  if (nodes.EyesRound) nodes.EyesRound.visible = cfg.eyeStyle !== 'visor'
+  if (nodes.EyesVisor) nodes.EyesVisor.visible = cfg.eyeStyle === 'visor'
+  if (cfg.wide && nodes.Torso) nodes.Torso.scale.x = 1.14
+  return { grp, nodes, mats: matMap }
+}
 
 function box(w, h, d, color, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }))
@@ -45,7 +89,7 @@ export function buildRobot(cfg = DEFAULT_ROBOT) {
     g.add(box(0.2, 0.09, 0.3, legDark, 0, -0.52, -0.04))        // 脚
     return g
   }
-  const legL = mkLeg(-1), legR = mkLeg(1)
+  let legL = mkLeg(-1), legR = mkLeg(1)
   // 骨盆
   const pelvis = box(0.4, 0.14, 0.28, legDark, 0, 0.6, 0)
   // 身体 + 腹带 + 背包
@@ -67,7 +111,7 @@ export function buildRobot(cfg = DEFAULT_ROBOT) {
     g.add(box(0.16, 0.1, 0.16, armDark, 0, -0.56, 0))           // 手
     return g
   }
-  const armL = mkArm(-1), armR = mkArm(1)
+  let armL = mkArm(-1), armR = mkArm(1)
   // 头：主体 + 面甲 + 下巴 + 侧耳 + 天线
   const head = new THREE.Group(); head.position.set(0, 1.24, 0)
   head.add(box(0.42, 0.38, 0.4, cfg.head, 0, 0.2, 0))
@@ -90,7 +134,10 @@ export function buildRobot(cfg = DEFAULT_ROBOT) {
       eye.position.set(ex, 0.24, -0.205); head.add(eye)
     }
   }
-  robot.add(legL, legR, pelvis, body, belly, backpack, pipeL, pipeR, corePlate, core, armL, armR, head)
+  // 盒子拼装机器人放进 fallback 组：GLB 加载完成后整组替换
+  const fallback = new THREE.Group()
+  fallback.add(legL, legR, pelvis, body, belly, backpack, pipeL, pipeR, corePlate, core, armL, armR, head)
+  robot.add(fallback)
 
   // 矿石装甲件（armor 形态叠加显示）
   const armorParts = new THREE.Group()
@@ -172,6 +219,28 @@ export function buildRobot(cfg = DEFAULT_ROBOT) {
   const allMats = []
   group.traverse(o => { if (o.isMesh) allMats.push(o.material) })
 
+  // —— GLB 升级：模板就绪后把盒子机器人换成 Blender 机甲 ——
+  let mechMats = null
+  let glbDone = false
+  function upgradeToGLB() {
+    if (!mechTemplate || glbDone) return
+    glbDone = true
+    const { grp, nodes, mats } = cloneMech(cfg)
+    robot.remove(fallback)
+    fallback.traverse(o => { if (o.isMesh) o.geometry.dispose() })
+    robot.add(grp)
+    // 动画引用重绑到 GLB 关节节点
+    if (nodes.LegL) legL = nodes.LegL
+    if (nodes.LegR) legR = nodes.LegR
+    if (nodes.ArmL) armL = nodes.ArmL
+    if (nodes.ArmR) armR = nodes.ArmR
+    lamp = null
+    mechMats = mats
+    for (const m of mats.values()) allMats.push(m)
+  }
+  upgradeToGLB()
+  mechReady.then(() => upgradeToGLB())
+
   return {
     group,
     setForm(f) {
@@ -195,8 +264,12 @@ export function buildRobot(cfg = DEFAULT_ROBOT) {
     // moving: 是否在移动；t: 累计时间
     animate(t, moving, dt) {
       swingT = Math.max(0, swingT - dt)
-      // 天线灯闪烁
+      // 天线灯闪烁（盒子版）/ 胸口核心脉冲（GLB 版）
       if (lamp) lamp.material.color.setHex(Math.sin(t * 2.4) > 0 ? 0xff5555 : 0x7a1f1f)
+      if (mechMats) {
+        const mc = mechMats.get('MatCore')
+        if (mc && mc.emissiveIntensity !== undefined) mc.emissiveIntensity = 2.2 + Math.sin(t * 2.4) * 1.2
+      }
       if (form === 'car') {
         const spin = moving ? t * 10 : 0
         for (const w of wheels) w.rotation.x = spin
