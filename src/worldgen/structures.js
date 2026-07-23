@@ -230,30 +230,149 @@ function buildJungleTemple(world) {
   STRUCT.lights.push([cx, s + 3, cz])
 }
 
-// 海底宫殿（深海盆地底部）：潮涌齿轮 + 海底守卫者
+// 海底宫殿 v2（深海盆地底部）：潮涌齿轮 + 海底守卫者
+// 精致化：基座平台 + 拱形正门 + 四角发光柱 + 二层回廊 + 金字塔穹顶 + 周边海底地形
 function buildSeaPalace(world) {
   const cx = POS.SEA_PALACE.x, cz = POS.SEA_PALACE.z
   const baseY = 24
-  const half = 15, height = 15
-  // 外壳
-  fill(world, cx - half, baseY, cz - half, cx + half, baseY + height, cz + half, B.PALACE_BRICK)
-  // 内部灌水（在水下，内部也是水）
-  fill(world, cx - half + 1, baseY + 1, cz - half + 1, cx + half - 1, baseY + height - 1, cz + half - 1, B.WATER)
-  // 四面大门 5×5
-  for (const [ox, oz, w] of [[0, -half, 'x'], [0, half, 'x'], [-half, 0, 'z'], [half, 0, 'z']]) {
-    if (w === 'x') fill(world, cx - 2, baseY + 2, cz + oz, cx + 2, baseY + 6, cz + oz, B.WATER)
-    else fill(world, cx + ox, baseY + 2, cz - 2, cx + ox, baseY + 6, cz + 2, B.WATER)
+  const half = 13, height = 12
+  // 确定性伪随机（周边地形用）
+  const rng = (a, b) => { const s = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return s - Math.floor(s) }
+
+  // —— 基座平台（比主殿大一圈，海晶石，边缘一圈海晶灯）——
+  const pHalf = half + 3
+  fill(world, cx - pHalf, baseY - 2, cz - pHalf, cx + pHalf, baseY, cz + pHalf, B.PRISMARINE)
+  for (let d = -pHalf; d <= pHalf; d += 2) {
+    world.setRaw(cx + d, baseY + 1, cz - pHalf, B.SEA_LANTERN)
+    world.setRaw(cx + d, baseY + 1, cz + pHalf, B.SEA_LANTERN)
+    world.setRaw(cx - pHalf, baseY + 1, cz + d, B.SEA_LANTERN)
+    world.setRaw(cx + pHalf, baseY + 1, cz + d, B.SEA_LANTERN)
   }
-  // 中央高台 + 潮涌齿轮箱
-  fill(world, cx - 2, baseY + 1, cz - 2, cx + 2, baseY + 2, cz + 2, B.PALACE_BRICK)
-  const chest = [cx, baseY + 3, cz]
+
+  // —— 主殿外墙（海宫砖）+ 内部灌水 ——
+  fill(world, cx - half, baseY + 1, cz - half, cx + half, baseY + height, cz + half, B.PALACE_BRICK)
+  fill(world, cx - half + 1, baseY + 2, cz - half + 1, cx + half - 1, baseY + height - 1, cz + half - 1, B.WATER)
+  fill(world, cx - half + 1, baseY + 1, cz - half + 1, cx + half - 1, baseY + 1, cz + half - 1, B.PRISMARINE) // 殿内地面
+
+  // —— 四角发光大柱（从基座冲出殿顶，柱顶海晶灯）——
+  for (const dx of [-half, half]) for (const dz of [-half, half]) {
+    fill(world, cx + dx, baseY + 1, cz + dz, cx + dx, baseY + height + 2, cz + dz, B.PALACE_PILLAR)
+    world.setRaw(cx + dx, baseY + height + 3, cz + dz, B.SEA_LANTERN)
+  }
+
+  // —— 正门（朝北 -z，玩家从深海游来的方向）：拱形门洞 + 门框柱 + 门楣灯 + 台阶 ——
+  const dz0 = cz - half
+  fill(world, cx - 2, baseY + 2, dz0, cx + 2, baseY + 6, dz0, B.WATER)   // 5 宽 5 高门洞
+  world.setRaw(cx - 2, baseY + 7, dz0, B.PALACE_PILLAR)                   // 拱顶收角
+  world.setRaw(cx + 2, baseY + 7, dz0, B.PALACE_PILLAR)
+  fill(world, cx - 1, baseY + 7, dz0, cx + 1, baseY + 7, dz0, B.SEA_LANTERN) // 门楣灯带
+  for (const s of [-3, 3]) fill(world, cx + s, baseY + 2, dz0, cx + s, baseY + 7, dz0, B.PALACE_PILLAR) // 门框柱
+  // 门前台阶引导（向外三级）
+  for (let i = 1; i <= 3; i++) fill(world, cx - 2, baseY, dz0 - i, cx + 2, baseY, dz0 - i, B.PRISMARINE)
+  world.setRaw(cx - 3, baseY + 1, dz0 - 1, B.SEA_LANTERN)
+  world.setRaw(cx + 3, baseY + 1, dz0 - 1, B.SEA_LANTERN)
+
+  // —— 其余三面：海晶灯格栅窗（透光但看得出是墙）——
+  for (const [ox, oz, ax] of [[0, half, 'x'], [-half, 0, 'z'], [half, 0, 'z']]) {
+    for (const off of [-4, 0, 4]) {
+      if (ax === 'x') { world.setRaw(cx + off, baseY + 4, cz + oz, B.SEA_LANTERN); world.setRaw(cx + off, baseY + 5, cz + oz, B.WATER) }
+      else { world.setRaw(cx + ox, baseY + 4, cz + off, B.SEA_LANTERN); world.setRaw(cx + ox, baseY + 5, cz + off, B.WATER) }
+    }
+  }
+
+  // —— 二层内回廊立柱（避开门→箱子中轴，让进门直视中央齿轮）——
+  for (const [dx, dz] of [[-8, -8], [8, -8], [-8, 8], [8, 8], [-9, 0], [9, 0], [-5, -10], [5, -10]]) {
+    fill(world, cx + dx, baseY + 2, cz + dz, cx + dx, baseY + height - 1, cz + dz, B.PALACE_PILLAR)
+  }
+
+  // —— 金字塔穹顶（逐层内缩 + 尖顶海晶灯）——
+  for (let i = 0; i <= half; i++) {
+    const r = half - i
+    if (r < 1) break
+    // 只铺一圈（空心穹顶壳）
+    for (let d = -r; d <= r; d++) {
+      world.setRaw(cx + d, baseY + height + i, cz - r, B.PALACE_BRICK)
+      world.setRaw(cx + d, baseY + height + i, cz + r, B.PALACE_BRICK)
+      world.setRaw(cx - r, baseY + height + i, cz + d, B.PALACE_BRICK)
+      world.setRaw(cx + r, baseY + height + i, cz + d, B.PALACE_BRICK)
+    }
+    if (i > half - 4) world.setRaw(cx, baseY + height + i, cz, B.SEA_LANTERN)
+  }
+
+  // —— 中央 3 层高台 + 潮涌齿轮箱（灯环围绕）——
+  fill(world, cx - 3, baseY + 2, cz - 3, cx + 3, baseY + 2, cz + 3, B.PRISMARINE)
+  fill(world, cx - 2, baseY + 3, cz - 2, cx + 2, baseY + 3, cz + 2, B.PRISMARINE)
+  for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) world.setRaw(cx + dx, baseY + 4, cz + dz, B.SEA_LANTERN)
+  const chest = [cx, baseY + 4, cz]
   world.setRaw(chest[0], chest[1], chest[2], B.CHEST)
   STRUCT.palaceChest = chest
-  // 四角荧光石柱
-  for (const dx of [-half + 2, half - 2]) for (const dz of [-half + 2, half - 2]) {
-    fill(world, cx + dx, baseY + 1, cz + dz, cx + dx, baseY + 8, cz + dz, B.GLOWSTONE)
+
+  STRUCT.lights.push([cx, baseY + 6, cz], [cx, baseY + height + half - 2, cz], [cx, baseY + 4, dz0 - 1])
+
+  // —— 周边海底地形 ——
+  buildSeaFloor(world, cx, cz, baseY, pHalf, rng)
+}
+
+// 神殿周边深海盆地：珊瑚丛、海草群、礁石堆、沉船残骸、指引神道
+function buildSeaFloor(world, cx, cz, baseY, pHalf, rng) {
+  // 扫描海床顶（贴起伏盆地斜坡）：返回最高实心方块 y，非水下返回 -1
+  const seabed = (x, z) => {
+    for (let y = CFG.SEA_LEVEL - 2; y >= baseY - 2; y--) {
+      const b = world.get(x, y, z)
+      if (b !== B.AIR && b !== B.WATER && b !== B.WATER_FLOW) return y
+    }
+    return -1
   }
-  STRUCT.lights.push([cx, baseY + 8, cz])
+  const place = (x, y, z, id) => { const t = world.get(x, y, z); if (t === B.WATER || t === B.WATER_FLOW) world.setRaw(x, y, z, id) }
+
+  // 通往正门的海晶石神道（北向，贴海床）
+  for (let i = 4; i < 16; i++) {
+    const z = cz - pHalf - i
+    const sb = seabed(cx, z)
+    if (sb < 0) continue
+    fill(world, cx - 1, sb, z, cx + 1, sb, z, B.PRISMARINE)
+    if (i % 3 === 0) { place(cx - 2, sb + 1, z, B.SEA_LANTERN); place(cx + 2, sb + 1, z, B.SEA_LANTERN) }
+  }
+
+  // 珊瑚丛 + 海草 + 礁石（撒在盆地内、避开神殿基座，贴海床）
+  for (let n = 0; n < 200; n++) {
+    const ang = rng(n, 1) * Math.PI * 2
+    const rad = pHalf + 3 + rng(n, 2) * 38
+    const x = Math.round(cx + Math.cos(ang) * rad)
+    const z = Math.round(cz + Math.sin(ang) * rad)
+    const sb = seabed(x, z)
+    if (sb < 0 || sb > CFG.SEA_LEVEL - 4) continue   // 只在够深的水下
+    const r = rng(n, 3)
+    if (r < 0.42) {
+      const coral = rng(n, 5) < 0.5 ? B.CORAL_PINK : B.CORAL_BLUE
+      const hgt = 1 + Math.floor(rng(n, 4) * 3)
+      for (let h = 1; h <= hgt; h++) place(x, sb + h, z, coral)
+      if (rng(n, 6) < 0.5) place(x + (rng(n, 7) < 0.5 ? 1 : -1), sb + 1, z, coral)
+    } else if (r < 0.72) {
+      const hgt = 1 + Math.floor(rng(n, 4) * 3)
+      for (let h = 1; h <= hgt; h++) place(x, sb + h, z, B.SEAWEED)
+    } else if (r < 0.88) {
+      place(x, sb + 1, z, B.STONE)
+      if (rng(n, 8) < 0.6) place(x, sb + 2, z, B.STONE)
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1]]) if (rng(n, 9 + dx) < 0.5) place(x + dx, sb + 1, z + dz, B.STONE)
+    } else {
+      place(x, sb + 1, z, B.SEA_LANTERN)
+    }
+  }
+
+  // 沉船残骸（盆地东南，贴海床）
+  const sx = cx + pHalf + 12, sz = cz + pHalf + 6
+  const ssb = seabed(sx, sz)
+  if (ssb > 0 && ssb < CFG.SEA_LEVEL - 4) {
+    for (let i = 0; i < 8; i++) {
+      const tilt = Math.floor(i * 0.4)
+      for (let dz = -2; dz <= 2; dz++) place(sx + i, ssb + 1 + tilt, sz + dz, B.WOOD)      // 船底板
+      if (i % 2 === 0 && i < 6) { place(sx + i, ssb + 2 + tilt, sz - 2, B.WOOD); place(sx + i, ssb + 2 + tilt, sz + 2, B.WOOD) } // 破船舷
+    }
+    for (let h = 2; h <= 6; h++) place(sx + 3, ssb + h, sz, B.WOOD)   // 断桅
+    place(sx + 3, ssb + 3, sz + 1, B.SEAWEED)
+    place(sx - 1, ssb + 1, sz, B.CORAL_PINK); place(sx + 8, ssb + 1, sz + 1, B.CORAL_BLUE)
+  }
 }
 
 // 禁地（世界南界焦黑岛链）：神秘齿轮宝箱在「禁地周围」——巡逻圈外沿

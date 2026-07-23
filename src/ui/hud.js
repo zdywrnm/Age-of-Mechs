@@ -13,6 +13,7 @@ const MM_COLORS = {
   7: '#39c8c4', 8: '#e8b53a', 9: '#1a2a1a', 10: '#cfc4b2', 11: '#a9793f', 12: '#e8b53a',
   13: '#2b2b2f', 14: '#e2d29a', 15: '#2a6aa8', 16: '#e85f1a', 17: '#4a4a50', 22: '#3a2c50',
   23: '#d8d0a8', 26: '#3a8fa8', 27: '#4a7a4a', 29: '#2e2320', 30: '#ffe89a', 31: '#3a7ab8',
+  32: '#3f8f8a', 33: '#8ff0ea', 34: '#ff6fa8', 35: '#5fb0ff', 36: '#3faa4a', 37: '#4a7a8f',
 }
 function shade(hex, f) {
   const r = Math.min(255, Math.round(parseInt(hex.slice(1, 3), 16) * f))

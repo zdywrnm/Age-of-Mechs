@@ -363,6 +363,45 @@ export function createAtlas() {
   // 33 荧光石：暖黄发光
   fill(33, '#ffe89a'); blobs(33, ['#fff6c8', '#ffd75e'], 8, 5, 10); speckle(33, ['#fffbe0'], 60, 2)
 
+  // 34 海晶石：青绿分块纹
+  fill(34, '#3f8f8a'); fbmTile(34, [[0.4, '#347a76'], [0.6, '#3f8f8a'], [0.8, '#4fa8a0']], 4)
+  ;(() => { const [x, y] = tileXY(34); ctx.strokeStyle = 'rgba(30,70,68,0.6)'; ctx.lineWidth = 2
+    for (let g = 0; g <= TILE; g += 21) { ctx.beginPath(); ctx.moveTo(x + g, y); ctx.lineTo(x + g, y + TILE); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(x, y + g); ctx.lineTo(x + TILE, y + g); ctx.stroke() } })()
+  // 35 海晶灯：亮青发光晶体
+  fill(35, '#8ff0ea'); blobs(35, ['#c8fffb', '#a8f4ee', '#6fe0d8'], 10, 4, 9)
+  ;(() => { const [x, y] = tileXY(35); ctx.fillStyle = '#e8fffd'
+    for (let n = 0; n < 5; n++) { const cx2 = x + 8 + rand() * 48, cy2 = y + 8 + rand() * 48
+      ctx.fillRect(cx2 - 1, cy2 - 5, 2, 10); ctx.fillRect(cx2 - 5, cy2 - 1, 10, 2) } })()
+  // 36 粉珊瑚：珊瑚枝丫
+  fill(36, '#0a1a1e'); ;(() => { const [x, y] = tileXY(36)
+    ctx.strokeStyle = '#ff6fa8'; ctx.lineWidth = 4; ctx.lineCap = 'round'
+    for (let b = 0; b < 4; b++) { let px = x + 14 + b * 12, py = y + TILE
+      ctx.beginPath(); ctx.moveTo(px, py)
+      for (let s = 0; s < 4; s++) { px += (rand() - 0.5) * 16; py -= 12; ctx.lineTo(px, py) }
+      ctx.stroke() }
+    ctx.fillStyle = '#ffb0d0'; for (let n = 0; n < 12; n++) ctx.fillRect(x + rand() * TILE, y + rand() * TILE, 3, 3) })()
+  // 37 蓝珊瑚
+  fill(37, '#0a1a1e'); ;(() => { const [x, y] = tileXY(37)
+    ctx.strokeStyle = '#5fb0ff'; ctx.lineWidth = 4; ctx.lineCap = 'round'
+    for (let b = 0; b < 4; b++) { let px = x + 14 + b * 12, py = y + TILE
+      ctx.beginPath(); ctx.moveTo(px, py)
+      for (let s = 0; s < 4; s++) { px += (rand() - 0.5) * 16; py -= 12; ctx.lineTo(px, py) }
+      ctx.stroke() }
+    ctx.fillStyle = '#a8d8ff'; for (let n = 0; n < 12; n++) ctx.fillRect(x + rand() * TILE, y + rand() * TILE, 3, 3) })()
+  // 38 海草：竖向飘带
+  fill(38, '#0a1a1e'); ;(() => { const [x, y] = tileXY(38)
+    ctx.strokeStyle = '#3faa4a'; ctx.lineWidth = 5; ctx.lineCap = 'round'
+    for (let b = 0; b < 5; b++) { let px = x + 8 + b * 12, py = y + TILE
+      ctx.beginPath(); ctx.moveTo(px, py)
+      for (let s = 0; s < 4; s++) { px += Math.sin(s + b) * 6; py -= 15; ctx.lineTo(px, py) }
+      ctx.stroke() } })()
+  // 39 海宫柱：竖纹青石柱 + 金饰
+  fill(39, '#4a7a8f'); fbmTile(39, [[0.5, '#3f6a7c'], [0.75, '#4a7a8f'], [0.9, '#5f95aa']], 3)
+  ;(() => { const [x, y] = tileXY(39); ctx.fillStyle = 'rgba(30,55,68,0.7)'
+    for (let g = 6; g < TILE; g += 12) ctx.fillRect(x + g, y, 3, TILE)
+    ctx.fillStyle = '#e8b53a'; ctx.fillRect(x, y + 4, TILE, 4); ctx.fillRect(x, y + TILE - 8, TILE, 4) })()
+
   const texture = new THREE.CanvasTexture(canvas)
   // 近处保持像素感、远处用 mipmap 消闪烁摩尔纹
   texture.magFilter = THREE.NearestFilter

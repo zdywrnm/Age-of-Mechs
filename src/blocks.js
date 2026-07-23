@@ -12,6 +12,7 @@ export const B = {
   FIRE: 20, PORTAL: 21, PORTAL_FRAME: 22, END_STONE: 23, SYMBOL: 24,
   BED: 25, PALACE_BRICK: 26, JUNGLE_BRICK: 27, CORE_BLOCK: 28,
   SCORCHED: 29, GLOWSTONE: 30, WATER_FLOW: 31,
+  PRISMARINE: 32, SEA_LANTERN: 33, CORAL_PINK: 34, CORAL_BLUE: 35, SEAWEED: 36, PALACE_PILLAR: 37,
 }
 
 export const BLOCKS = [
@@ -48,6 +49,12 @@ export const BLOCKS = [
   { name: '焦黑土',   hardness: 0.4,      tiles: { top: 32, side: 32, bottom: 32 }, drop: B.SCORCHED },
   { name: '荧光石',   hardness: 0.8,      tiles: { top: 33, side: 33, bottom: 33 }, drop: B.GLOWSTONE },
   { name: '流动的水', hardness: Infinity, tiles: { top: 17, side: 17, bottom: 17 }, drop: 0, solid: false, opaque: false, fluid: true },
+  { name: '海晶石',   hardness: 1.4,      tiles: { top: 34, side: 34, bottom: 34 }, drop: B.PRISMARINE },
+  { name: '海晶灯',   hardness: 0.8,      tiles: { top: 35, side: 35, bottom: 35 }, drop: B.SEA_LANTERN },
+  { name: '粉珊瑚',   hardness: 0.3,      tiles: { top: 36, side: 36, bottom: 36 }, drop: 0, opaque: false },
+  { name: '蓝珊瑚',   hardness: 0.3,      tiles: { top: 37, side: 37, bottom: 37 }, drop: 0, opaque: false },
+  { name: '海草',     hardness: 0.1,      tiles: { top: 38, side: 38, bottom: 38 }, drop: 0, solid: false, opaque: false },
+  { name: '海宫柱',   hardness: 1.6,      tiles: { top: 39, side: 39, bottom: 39 }, drop: B.PALACE_PILLAR },
 ]
 
 export function isSolid(id) { return id !== B.AIR && BLOCKS[id].solid !== false }
