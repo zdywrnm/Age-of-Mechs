@@ -105,6 +105,8 @@ class AudioEngine {
       case 'boat':   N({ dur: 0.2, vol: 0.2, freq: 500, slide: 250, q: 0.7 }); break
       case 'shoot':  T({ freq: 880, freq2: 300, dur: 0.12, type: 'square', vol: 0.16 }); N({ dur: 0.06, vol: 0.1, freq: 2000, slide: 800 }); break
       case 'laser':  T({ freq: 2200, freq2: 500, dur: 0.14, type: 'sawtooth', vol: 0.22 }); N({ dur: 0.08, vol: 0.12, freq: 3200, slide: 1400 }); break
+      case 'ghostwail': N({ dur: 0.9, vol: 0.16, freq: 1600, slide: 220, q: 3 }); T({ freq: 420, freq2: 90, dur: 0.8, type: 'sawtooth', vol: 0.12 }); break  // 撕裂/鬼嚎
+      case 'pillar': N({ dur: 0.7, vol: 0.28, freq: 300, slide: 1400, q: 0.5 }); T({ freq: 80, freq2: 200, dur: 0.6, type: 'sawtooth', vol: 0.3 }); break  // 火焰光柱落下
       case 'click':  T({ freq: 900, dur: 0.04, type: 'square', vol: 0.12 }); break
       case 'death':  [392, 330, 262, 196].forEach((f, i) => T({ freq: f, dur: 0.25, at: i * 0.2, type: 'triangle', vol: 0.28 })); break
       case 'ending': [523, 659, 784, 880, 1047, 1319, 1568].forEach((f, i) => T({ freq: f, dur: 0.3, at: i * 0.16, type: 'triangle', vol: 0.26 })); break

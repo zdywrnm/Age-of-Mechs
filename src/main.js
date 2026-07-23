@@ -19,6 +19,7 @@ import { ProjectileManager } from './entities/projectiles.js'
 import { DropManager } from './entities/drops.js'
 import { AuthorNPC, Villager } from './entities/npc.js'
 import { zoneAt } from './game/zones.js'
+import { ZoneFx } from './game/zoneFx.js'
 import { MysteryPickupManager } from './entities/mysteryPickup.js'
 import { BoatManager } from './entities/boat.js'
 import { FluidSim } from './game/fluids.js'
@@ -226,6 +227,7 @@ function startGame(robotConfig, save) {
   fluids.setWorld(ctx.world)
   const pickups = new MysteryPickupManager(player)
   const dayNight = new DayNight(scene, { hemi, sun, fog: scene.fog })
+  const zoneFx = new ZoneFx({ scene, fx, audio, hud, player, dims, ctx: { STRUCT, active: () => dims.active } })
 
   // NPC：作者①（塔）、作者②（木屋商店）、地下族人
   const npc = new AuthorNPC(mainGroup, STRUCT.npcPos)
@@ -434,6 +436,20 @@ function startGame(robotConfig, save) {
   monsters.onHit = (m2, dmg) => {
     fx.burst(new THREE.Vector3(m2.ent.pos.x, m2.ent.pos.y + m2.h * 0.6, m2.ent.pos.z),
       '#ffffff', { count: 4, speed: 2.2, up: 1.6, size: 0.09, additive: true })
+  }
+  // v4 邪恶巨龙火焰光柱：预警红环 → 落柱火焰
+  monsters.onPillar = (tx, tz, phase) => {
+    const gy = ctx.world.surfaceAt(Math.floor(tx), Math.floor(tz)) + 1
+    const base = new THREE.Vector3(tx, gy, tz)
+    if (phase === 'warn') {
+      fx.ring(base, '#ff2020', { maxR: 3.2, life: 1.2 })   // 地面红色预警环
+    } else {
+      // 落柱：竖直火焰柱 + 爆裂 + 震屏
+      fx.cone(base, new THREE.Vector3(0, 1, 0), ['#ff2020', '#ff6a1a', '#ffd24a'], { count: 30, speed: 14, spread: 0.15, size: 0.32, gravity: -4 })
+      fx.burst(base, ['#ff3020', '#ffb040'], { count: 20, speed: 8, up: 6, size: 0.24, additive: true })
+      fx.ring(base, '#ff8a3a', { maxR: 4, life: 0.4 })
+      fx.shake(0.5); audio.sfx('pillar')
+    }
   }
   // v4 远古熊猫范围震地：冲击环 + 土块 + 震屏
   monsters.onBrawlerQuake = pos => {
@@ -1109,6 +1125,7 @@ function startGame(robotConfig, save) {
       }
       quests.setFloor(dims.active === 'arena' ? towerCtrl.currentFloor : 0)
       dayNight.update(dt, dims.active === 'main', camera.position)
+      zoneFx.update(dt)   // v4 区域标题/鬼城雾/环境音/粒子（必须在 dayNight 之后覆盖雾）
       fluids.tick(dt)
       if (player.ent.inWater && !window.__wasInWater && player.ent.vel.y < -3) audio.sfx('splash')
       window.__wasInWater = player.ent.inWater

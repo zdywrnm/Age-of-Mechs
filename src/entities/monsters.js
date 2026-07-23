@@ -254,6 +254,42 @@ export class MonsterManager {
     m.ent.vel.z = (dz / nd) * m.speed
   }
 
+  // v4 邪恶巨龙 pillar AI：高空盘旋 + 每 5s 火焰光柱（锁位→预警→落柱）+ 穿插火球
+  pillarAI(m, dt, dx, dz, distH) {
+    const p = this.player
+    // 保持在玩家上空盘旋
+    m.patrolA = (m.patrolA || 0) + dt * 0.7
+    const hoverY = Math.max(p.ent.pos.y + 20, 140)
+    this.steer(m,
+      p.ent.pos.x + Math.cos(m.patrolA) * 14,
+      hoverY,
+      p.ent.pos.z + Math.sin(m.patrolA) * 14, m.speed)
+
+    // 火焰光柱周期
+    m.pillarCd = (m.pillarCd ?? 5) - dt
+    if (m.pillarWarn > 0) {
+      m.pillarWarn -= dt
+      if (m.pillarWarn <= 0) {
+        // 落柱：锁定点若与玩家水平距离 <3 造成 40 伤
+        const [tx, tz] = m.pillarTarget
+        if (Math.hypot(p.ent.pos.x - tx, p.ent.pos.z - tz) < 3) p.takeDamage(40, { x: tx, y: p.ent.pos.y, z: tz })
+        this.onPillar && this.onPillar(tx, tz, 'strike')
+      }
+    } else if (m.pillarCd <= 0) {
+      m.pillarCd = 5
+      m.pillarWarn = 1.2
+      m.pillarTarget = [p.ent.pos.x, p.ent.pos.z]   // 锁定当前位置
+      this.onPillar && this.onPillar(p.ent.pos.x, p.ent.pos.z, 'warn')
+    }
+
+    // 穿插普通火球
+    m.shotT -= dt
+    if (m.shotT <= 0 && distH < 30) {
+      m.shotT = 2.2
+      this.shoot(m, { x: p.ent.pos.x, y: p.ent.pos.y + 0.9, z: p.ent.pos.z }, 16)
+    }
+  }
+
   // v4 变异装甲车 rammer AI：绕圈快速扫射 + 每 6 秒一次冲撞
   rammerAI(m, dt, dx, dz, distH) {
     const p = this.player
@@ -382,6 +418,11 @@ export class MonsterManager {
         if (p.dead || stealthed) { m.state = 'idle'; m.swoopPhase = null; continue }
         this.swoopAI(m, dt, dx, dy, dz)
         if (distH > (m.aggroR || 60) * 1.8) { m.state = 'idle'; m.swoopPhase = null }
+      } else if (m.state === 'chase' && m.def.pillar) {
+        // 邪恶巨龙：高空盘旋 + 火焰光柱（预警后落柱）+ 普通火球
+        if (p.dead || stealthed) { m.state = 'idle'; continue }
+        this.pillarAI(m, dt, dx, dz, distH)
+        if (distH > (m.aggroR || 40) * 2.5) m.state = 'idle'
       } else if (m.state === 'chase' && m.def.brawler) {
         // 远古熊猫：三技能格斗 boss
         if (p.dead || stealthed) { m.state = 'idle'; m.ent.vel.x = m.ent.vel.z = 0; continue }

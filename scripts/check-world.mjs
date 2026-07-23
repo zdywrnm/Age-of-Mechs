@@ -162,6 +162,16 @@ check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && ST
   check('矿山中心判定', zoneAt(POS.MOUNT_C.x, POS.MOUNT_C.z)?.id === 'mountains')
 }
 
+// —— v4 鬼城遗址 ——
+{
+  check('鬼城废墟锚点已生成', STRUCT.ghostRuins && STRUCT.ghostRuins.length >= 15, `ruins=${STRUCT.ghostRuins?.length}`)
+  check('鬼城中心焦黑祭坛', world.get(POS.GHOST_C.x, world.surfaceAt(POS.GHOST_C.x, POS.GHOST_C.z) + 2, POS.GHOST_C.z) === B.SCORCHED)
+  check('鬼城中心判定', zoneAt(POS.GHOST_C.x, POS.GHOST_C.z)?.id === 'ghost')
+  // 废墟锚点确实在鬼城矩形内
+  const allIn = STRUCT.ghostRuins.every(([x, , z]) => x >= POS.GHOST_RECT.x0 && x <= POS.GHOST_RECT.x1 && z >= POS.GHOST_RECT.z0 && z <= POS.GHOST_RECT.z1)
+  check('废墟锚点都在鬼城范围内', allIn)
+}
+
 // —— 区域系统 ——
 check('塔心在城市区', zoneAt(POS.TOWER_C.x, POS.TOWER_C.z)?.id === 'city')
 check('竹林中心判定', zoneAt(POS.BAMBOO_C.x, POS.BAMBOO_C.z)?.id === 'bamboo')
