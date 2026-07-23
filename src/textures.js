@@ -8,6 +8,11 @@ export const ATLAS_TILES = 8 // 8×8
 // tile 索引表（blocks.js 引用）：
 // 0 草顶 | 1 草侧 | 2 泥巴 | 3 木侧 | 4 木顶 | 5 树叶 | 6 石头 | 7 石砖
 // 8 普通矿石 | 9 金子 | 10 代码矿石 | 11 诡异木板 | 12 箱侧 | 13 箱顶 | 14 金座 | 15 基岩 | 16 沙子
+// 17-39 第二章（水/岩浆/地狱/终极之地/海洋）
+// —— v4 六区 ——
+// 40 竹节 | 41 竹叶 | 42 钻石矿石 | 43 红宝石矿石 | 44 蓝宝石矿石
+// 45 图腾顶底 | 46 图腾侧脸(四红眼) | 47 焦黑砖 | 48 陶瓦 | 49 白绒 | 50 黑绒
+// 51 红地毯 | 52 壁画(小人图) | 53 摊布
 
 export function createAtlas() {
   const canvas = document.createElement('canvas')
@@ -401,6 +406,161 @@ export function createAtlas() {
   ;(() => { const [x, y] = tileXY(39); ctx.fillStyle = 'rgba(30,55,68,0.7)'
     for (let g = 6; g < TILE; g += 12) ctx.fillRect(x + g, y, 3, TILE)
     ctx.fillStyle = '#e8b53a'; ctx.fillRect(x, y + 4, TILE, 4); ctx.fillRect(x, y + TILE - 8, TILE, 4) })()
+
+  // —— v4 六区新增 tile ——
+  // 40 竹节：翠绿竖纹 + 深色竹节环 + 节上高光
+  fill(40, '#4fae4a')
+  ;(() => { const [x, y] = tileXY(40)
+    for (let c = 0; c < TILE; c += 8) { ctx.fillStyle = c % 16 === 0 ? '#419440' : '#5cbf56'; ctx.fillRect(x + c, y, 6, TILE) }
+    ctx.fillStyle = '#2f7a30'
+    ctx.fillRect(x, y + 14, TILE, 4); ctx.fillRect(x, y + 44, TILE, 4)
+    ctx.fillStyle = '#8fe08a'
+    ctx.fillRect(x, y + 12, TILE, 2); ctx.fillRect(x, y + 42, TILE, 2)
+  })()
+  // 41 竹叶：暗绿底 + 细长亮叶
+  fbmTile(41, [{ t: 0.4, c: '#2f7a2b' }, { t: 0.55, c: '#3a9434' }, { t: 0.72, c: '#46a83d' }, { t: 1, c: '#54bc49' }], 6)
+  ;(() => { const [x, y] = tileXY(41)
+    ctx.strokeStyle = '#8fe08a'; ctx.lineWidth = 2; ctx.lineCap = 'round'
+    for (let n = 0; n < 14; n++) {
+      const cx = x + 6 + rand() * 52, cy = y + 6 + rand() * 52, a = rand() * Math.PI
+      ctx.beginPath(); ctx.moveTo(cx - Math.cos(a) * 6, cy - Math.sin(a) * 6); ctx.lineTo(cx + Math.cos(a) * 6, cy + Math.sin(a) * 6); ctx.stroke()
+    }
+    speckle(41, ['#1e5c1a'], 30, 2)
+  })()
+  // 42 钻石矿石：灰岩底 + 青白菱形晶簇
+  fbmTile(42, [{ t: 0.4, c: '#797979' }, { t: 0.54, c: '#848484' }, { t: 0.7, c: '#8f8f8f' }, { t: 1, c: '#9b9b9b' }], 5, 4211)
+  ;(() => { const [x, y] = tileXY(42)
+    for (let n = 0; n < 5; n++) {
+      const cx = x + 10 + rand() * 44, cy = y + 10 + rand() * 44, s = 5 + rand() * 4
+      ctx.fillStyle = '#5fd8e8'
+      ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s, cy); ctx.lineTo(cx, cy + s); ctx.lineTo(cx - s, cy); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = '#c8f6ff'
+      ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s * 0.5, cy - s * 0.4); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(cx - 1, cy - s + 2, 2, 2)
+    }
+  })()
+  // 43 红宝石矿石：灰岩底 + 暗红晶粒
+  fbmTile(43, [{ t: 0.4, c: '#797979' }, { t: 0.54, c: '#848484' }, { t: 0.7, c: '#8f8f8f' }, { t: 1, c: '#9b9b9b' }], 5, 4311)
+  ;(() => { const [x, y] = tileXY(43)
+    for (let n = 0; n < 6; n++) {
+      const cx = x + 8 + rand() * 46, cy = y + 8 + rand() * 46, s = 4 + rand() * 4
+      ctx.fillStyle = '#8f1626'; ctx.fillRect(cx - s / 2 - 1, cy - s / 2 - 1, s + 2, s + 2)
+      ctx.fillStyle = '#e83a5a'; ctx.fillRect(cx - s / 2, cy - s / 2, s, s)
+      ctx.fillStyle = '#ff8fa5'; ctx.fillRect(cx - s / 2, cy - s / 2, s, 2)
+      ctx.fillStyle = '#ffd8e0'; ctx.fillRect(cx - s / 2, cy - s / 2, 2, 2)
+    }
+  })()
+  // 44 蓝宝石矿石：灰岩底 + 深蓝晶粒
+  fbmTile(44, [{ t: 0.4, c: '#797979' }, { t: 0.54, c: '#848484' }, { t: 0.7, c: '#8f8f8f' }, { t: 1, c: '#9b9b9b' }], 5, 4411)
+  ;(() => { const [x, y] = tileXY(44)
+    for (let n = 0; n < 6; n++) {
+      const cx = x + 8 + rand() * 46, cy = y + 8 + rand() * 46, s = 4 + rand() * 4
+      ctx.fillStyle = '#16308f'; ctx.fillRect(cx - s / 2 - 1, cy - s / 2 - 1, s + 2, s + 2)
+      ctx.fillStyle = '#3a6ae8'; ctx.fillRect(cx - s / 2, cy - s / 2, s, s)
+      ctx.fillStyle = '#8fabff'; ctx.fillRect(cx - s / 2, cy - s / 2, s, 2)
+      ctx.fillStyle = '#d8e2ff'; ctx.fillRect(cx - s / 2, cy - s / 2, 2, 2)
+    }
+  })()
+  // 45 神秘图腾 顶/底：灰石主体 + 红色边框（双层）
+  fill(45, '#8a8a92'); speckle(45, ['#7a7a82', '#9a9aa2'], 160, 3)
+  ;(() => { const [x, y] = tileXY(45)
+    ctx.strokeStyle = '#d82a2a'; ctx.lineWidth = 5; ctx.strokeRect(x + 3, y + 3, TILE - 6, TILE - 6)
+    ctx.strokeStyle = 'rgba(255,90,90,0.5)'; ctx.lineWidth = 2; ctx.strokeRect(x + 9, y + 9, TILE - 18, TILE - 18)
+  })()
+  // 46 神秘图腾 侧脸：灰体红框 + 两双发光红眼（设定原文：两双红色的眼睛）
+  fill(46, '#84848c'); speckle(46, ['#74747c', '#94949c'], 140, 3)
+  ;(() => { const [x, y] = tileXY(46)
+    ctx.strokeStyle = '#d82a2a'; ctx.lineWidth = 5; ctx.strokeRect(x + 3, y + 3, TILE - 6, TILE - 6)
+    for (const [ex, ey] of [[22, 22], [42, 22], [22, 40], [42, 40]]) {
+      ctx.fillStyle = 'rgba(255,40,40,0.35)'; ctx.beginPath(); ctx.arc(x + ex, y + ey, 8, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#ff2020'; ctx.beginPath(); ctx.ellipse(x + ex, y + ey, 6, 4, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#ffb0a0'; ctx.fillRect(x + ex - 1, y + ey - 2, 3, 2)
+    }
+    ctx.fillStyle = '#5a5a62'; ctx.fillRect(x + 24, y + 52, 16, 3)   // 嘴缝
+  })()
+  // 47 焦黑砖：暗色砖缝 + 焦裂余烬
+  fill(47, '#3a3532')
+  ;(() => { const [x, y] = tileXY(47)
+    ctx.fillStyle = '#262220'
+    for (let r = 0; r < 4; r++) {
+      ctx.fillRect(x, y + r * 16, TILE, 2)
+      const off = r % 2 === 0 ? 0 : 16
+      for (let c = off; c <= TILE; c += 32) ctx.fillRect(x + c, y + r * 16, 2, 16)
+    }
+    speckle(47, ['#2e2a28', '#4a4440'], 120, 2)
+    ctx.strokeStyle = '#1a1614'; ctx.lineWidth = 2
+    for (let n = 0; n < 3; n++) {
+      let px = x + rand() * TILE, py = y + rand() * TILE
+      ctx.beginPath(); ctx.moveTo(px, py)
+      for (let s = 0; s < 3; s++) { px += (rand() - 0.5) * 20; py += (rand() - 0.5) * 20; ctx.lineTo(px, py) }
+      ctx.stroke()
+    }
+    ctx.fillStyle = '#c05024'
+    for (let n = 0; n < 4; n++) ctx.fillRect(x + Math.floor(rand() * TILE), y + Math.floor(rand() * TILE), 2, 2)
+  })()
+  // 48 陶瓦：红陶横条瓦楞
+  fill(48, '#b4553a')
+  ;(() => { const [x, y] = tileXY(48)
+    for (let r = 0; r < 4; r++) {
+      ctx.fillStyle = '#8f3f2a'; ctx.fillRect(x, y + r * 16 + 12, TILE, 4)
+      ctx.fillStyle = '#cf6a48'; ctx.fillRect(x, y + r * 16, TILE, 3)
+    }
+    speckle(48, ['#a34a32', '#c25f42'], 80, 2)
+  })()
+  // 49 白绒块：米白绒毛（熊猫图腾用）
+  fbmTile(49, [{ t: 0.4, c: '#ddd6c8' }, { t: 0.55, c: '#e8e2d4' }, { t: 0.72, c: '#f2ecdf' }, { t: 1, c: '#faf6ec' }], 6)
+  ;(() => { const [x, y] = tileXY(49)
+    ctx.strokeStyle = 'rgba(200,190,170,0.6)'; ctx.lineWidth = 1
+    for (let n = 0; n < 30; n++) {
+      const cx = x + rand() * TILE, cy = y + rand() * TILE
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + (rand() - 0.5) * 6, cy + 4 + rand() * 3); ctx.stroke()
+    }
+  })()
+  // 50 黑绒块：黑绒毛
+  fbmTile(50, [{ t: 0.4, c: '#17171a' }, { t: 0.55, c: '#202024' }, { t: 0.72, c: '#28282d' }, { t: 1, c: '#323238' }], 6)
+  ;(() => { const [x, y] = tileXY(50)
+    ctx.strokeStyle = 'rgba(70,70,80,0.6)'; ctx.lineWidth = 1
+    for (let n = 0; n < 30; n++) {
+      const cx = x + rand() * TILE, cy = y + rand() * TILE
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + (rand() - 0.5) * 6, cy + 4 + rand() * 3); ctx.stroke()
+    }
+  })()
+  // 51 红地毯：红底金边 + 菱形纹样（森林神殿）
+  fill(51, '#a5202e'); speckle(51, ['#8f1826', '#b52c3a'], 140, 3)
+  ;(() => { const [x, y] = tileXY(51)
+    ctx.strokeStyle = '#e8b53a'; ctx.lineWidth = 3; ctx.strokeRect(x + 3, y + 3, TILE - 6, TILE - 6)
+    ctx.strokeStyle = 'rgba(232,181,58,0.7)'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.moveTo(x + 32, y + 12); ctx.lineTo(x + 52, y + 32); ctx.lineTo(x + 32, y + 52); ctx.lineTo(x + 12, y + 32); ctx.closePath(); ctx.stroke()
+    ctx.fillStyle = '#e8b53a'; ctx.fillRect(x + 30, y + 30, 4, 4)
+  })()
+  // 52 壁画：亚麻底画框 + 火柴小人图 + 齿轮（森林神殿墙画）
+  fill(52, '#d8cdb4'); speckle(52, ['#ccc0a6', '#e2d8c2'], 80, 2)
+  ;(() => { const [x, y] = tileXY(52)
+    ctx.strokeStyle = '#6b4d29'; ctx.lineWidth = 3; ctx.strokeRect(x + 2, y + 2, TILE - 4, TILE - 4)
+    ctx.strokeStyle = '#4a3a2a'; ctx.lineWidth = 2; ctx.lineCap = 'round'
+    const man = (mx, my, pose) => {
+      ctx.beginPath(); ctx.arc(x + mx, y + my, 4, 0, Math.PI * 2); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(x + mx, y + my + 4); ctx.lineTo(x + mx, y + my + 14); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(x + mx, y + my + 14); ctx.lineTo(x + mx - 5, y + my + 22)
+      ctx.moveTo(x + mx, y + my + 14); ctx.lineTo(x + mx + 5, y + my + 22); ctx.stroke()
+      if (pose === 0) { ctx.beginPath(); ctx.moveTo(x + mx - 6, y + my + 2); ctx.lineTo(x + mx, y + my + 8); ctx.lineTo(x + mx + 6, y + my + 2); ctx.stroke() }
+      else { ctx.beginPath(); ctx.moveTo(x + mx - 6, y + my + 12); ctx.lineTo(x + mx + 6, y + my + 8); ctx.stroke() }
+    }
+    man(16, 12, 0); man(34, 28, 1); man(50, 10, 0)
+    ctx.strokeStyle = '#8a5f2a'; ctx.lineWidth = 2
+    ctx.beginPath(); ctx.arc(x + 48, y + 48, 6, 0, Math.PI * 2); ctx.stroke()
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 3) {
+      ctx.beginPath(); ctx.moveTo(x + 48 + Math.cos(a) * 6, y + 48 + Math.sin(a) * 6)
+      ctx.lineTo(x + 48 + Math.cos(a) * 9, y + 48 + Math.sin(a) * 9); ctx.stroke()
+    }
+  })()
+  // 53 摊布：红白条纹遮阳布（市集摊位）
+  fill(53, '#f2ede0')
+  ;(() => { const [x, y] = tileXY(53)
+    for (let c = 0; c < TILE; c += 16) { ctx.fillStyle = '#c73a48'; ctx.fillRect(x + c, y, 8, TILE) }
+    ctx.fillStyle = 'rgba(0,0,0,0.12)'
+    for (let r = 12; r < TILE; r += 16) ctx.fillRect(x, y + r, TILE, 2)
+  })()
 
   const texture = new THREE.CanvasTexture(canvas)
   // 近处保持像素感、远处用 mipmap 消闪烁摩尔纹
