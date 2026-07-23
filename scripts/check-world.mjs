@@ -172,6 +172,20 @@ check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && ST
   check('废墟锚点都在鬼城范围内', allIn)
 }
 
+// —— v4 森林 + 神殿 ——
+{
+  check('森林中心判定', zoneAt(POS.FOREST_C.x, POS.FOREST_C.z)?.id === 'forest')
+  check('森林神殿红眼睛大箱存在', STRUCT.forestChest && at(world, STRUCT.forestChest) === B.CHEST)
+  // 巨型古树：树干高处仍是木头
+  check('巨型古树高耸(30格处仍是树干)', world.get(POS.GIANT_TREE.x, world.surfaceAt(POS.GIANT_TREE.x, POS.GIANT_TREE.z) + 30, POS.GIANT_TREE.z) === B.WOOD)
+  // 森林神殿南门可进
+  const t = POS.FOREST_TEMPLE
+  const ts = world.surfaceAt(t.x, t.z)
+  check('森林神殿南门可进', world.get(t.x, ts + 1, t.z + 7) === B.AIR && world.get(t.x, ts + 2, t.z + 7) === B.AIR)
+  // 二层楼板存在（一层与二层隔开）
+  check('森林神殿二层楼板', world.get(t.x + 3, ts + 7, t.z) === B.PLANK)
+}
+
 // —— 区域系统 ——
 check('塔心在城市区', zoneAt(POS.TOWER_C.x, POS.TOWER_C.z)?.id === 'city')
 check('竹林中心判定', zoneAt(POS.BAMBOO_C.x, POS.BAMBOO_C.z)?.id === 'bamboo')

@@ -283,6 +283,17 @@ function startGame(robotConfig, save) {
       { blocks: [[B.GOLD, 6], [B.ORE_DIAMOND, 4], [B.CODE, 3]], banner: ['💎 竹林秘藏！', '金子×6 钻石×4 代码矿石×3！'] },
       { id: 'bamboo:treasure' })
   }
+  // v4 森林神殿二层大箱 → 唯一「红眼睛」远程武器（装上即替代机甲炮）
+  if (STRUCT.forestChest) {
+    chests.register(STRUCT.forestChest, {
+      grant: () => {
+        if (player.items.get('red_eye')) { player.addGears(20); hud.toast('👁️ 你已经有红眼睛了，化作 20 齿轮！'); return }
+        player.addItem('red_eye')
+        player.equipment.ranged = 'red_eye'
+        hud.banner('👁️ 获得远古武器 · 红眼睛！', '瞬间射出红色激光（100 伤害）！现在 G/🔫 变成激光，背包里可卸下')
+      },
+    }, { id: 'forest:redeye' })
+  }
 
   const towerCtrl = new TowerV2(dims, monsters, hud)
   const portals = new PortalSystem(dims, player, hud, flags)
