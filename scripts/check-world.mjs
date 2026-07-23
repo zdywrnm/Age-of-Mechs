@@ -147,6 +147,21 @@ check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && ST
   check('竹林神殿南门可进', world.get(t.x, ts + 1, t.z + 8) === B.AIR && world.get(t.x, ts + 2, t.z + 8) === B.AIR)
 }
 
+// —— v4 矿石群山 ——
+{
+  const s = STRUCT.mountStats
+  check('矿脉已生成', !!s)
+  if (s) {
+    check(`普通矿脉 (${s.ore}) 充足`, s.ore >= 40, `ore=${s.ore}`)
+    check(`金矿脉 (${s.gold}) 充足`, s.gold >= 25, `gold=${s.gold}`)
+    check(`钻石矿脉 (${s.diamond}) 存在`, s.diamond >= 5, `diamond=${s.diamond}`)
+    check(`红宝石 (${s.ruby}) + 蓝宝石 (${s.sapphire}) 存在`, s.ruby >= 3 && s.sapphire >= 3)
+    check(`图腾节点 (${s.totem}) 在 1~3 个`, s.totem >= 1 && s.totem <= 3, `totem=${s.totem}`)
+  }
+  check('矿山有洞口', STRUCT.mountCaves && STRUCT.mountCaves.length === 5)
+  check('矿山中心判定', zoneAt(POS.MOUNT_C.x, POS.MOUNT_C.z)?.id === 'mountains')
+}
+
 // —— 区域系统 ——
 check('塔心在城市区', zoneAt(POS.TOWER_C.x, POS.TOWER_C.z)?.id === 'city')
 check('竹林中心判定', zoneAt(POS.BAMBOO_C.x, POS.BAMBOO_C.z)?.id === 'bamboo')
