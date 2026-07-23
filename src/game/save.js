@@ -6,6 +6,36 @@ import { CFG } from '../config.js'
 export const SLOT_COUNT = 4
 const slotKey = n => `aom_slot${n}`
 
+const ISLAND_REV = 2   // v4 初始岛世界修订号（六区重建）
+
+// v3 → v4 迁移：补新字段 + 过滤新主岛立柱范围内的旧方块编辑（含地下城）
+export function migrateV3toV4(d) {
+  if (!d || d.version >= 4) return d
+  d.version = 4
+  d.islandRev = ISLAND_REV
+  // 装备补 artifact/ranged 空槽（旧 JSON 导入也可用）
+  d.player = d.player || {}
+  d.player.equipment = Object.assign({ sword: null, armor: null, wings: null, artifact: null, ranged: null }, d.player.equipment)
+  // boss 击杀持久标记
+  d.flags = Object.assign({ ancientPandaDefeated: false, ghostDragonDefeated: false }, d.flags)
+  // 宝箱 id 前缀化（chests.deserialize 已兼容，这里统一重写）
+  d.chests = (d.chests || []).map(k => (k.includes(':') || k.includes(',')) ? k : 'gear:' + k)
+  // 只清除「新主岛立柱范围」内的旧方块编辑——主岛柱体(含海滩)+ 刷怪塔小岛盒
+  const inRebuild = (x, z) =>
+    Math.hypot(x - CFG.ISLAND_CX, z - CFG.ISLAND_CZ) <= 118 ||
+    (x <= 40 && z >= 108 && z <= 148)
+  if (d.edits?.main) d.edits.main = d.edits.main.filter(([x, , z]) => !inRebuild(x, z))   // 全 y 过滤（含地下城）
+  // 旧位置若落在重建区 → 置 null，main.js 现有兜底自动回城南出生点
+  if (d.player.pos && inRebuild(d.player.pos[0], d.player.pos[2])) d.player.pos = null
+  // 重建区内会被陆地/建筑吞没的旧船移除，其他船保留
+  d.boats = (d.boats || []).filter(b => {
+    const x = b.x ?? (Array.isArray(b) ? b[0] : 0)
+    const z = b.z ?? (Array.isArray(b) ? b[2] : 0)
+    return !inRebuild(x, z)
+  })
+  return d
+}
+
 export function currentSlot() {
   const n = Number(localStorage.getItem('aom_current_slot') || 1)
   return n >= 1 && n <= SLOT_COUNT ? n : 1
@@ -21,7 +51,7 @@ function migrateLegacy() {
     if (!legacy) return
     const data = JSON.parse(legacy)
     if (data.version === 3) {
-      localStorage.setItem(slotKey(1), legacy)
+      localStorage.setItem(slotKey(1), JSON.stringify(migrateV3toV4(data)))   // 顺手升到 v4
       setCurrentSlot(1)
     }
     localStorage.removeItem(CFG.SAVE_KEY)
@@ -82,7 +112,7 @@ function legacyChainV2V1() {
 export function saveGame(data) {
   try {
     localStorage.setItem(slotKey(currentSlot()),
-      JSON.stringify({ version: 3, savedAt: Date.now(), ...data }))
+      JSON.stringify({ version: 4, islandRev: ISLAND_REV, savedAt: Date.now(), ...data }))
   } catch (e) { console.warn('存档失败', e) }
 }
 
@@ -91,8 +121,9 @@ export function loadGame() {
   try {
     const raw = localStorage.getItem(slotKey(currentSlot()))
     if (!raw) return null
-    const data = JSON.parse(raw)
-    if (data.version !== 3) return null
+    let data = JSON.parse(raw)
+    if (data.version === 3) { data = migrateV3toV4(data); data.migratedFromV1 = true }   // 旧档提示
+    if (data.version !== 4) return null
     return data
   } catch (e) {
     console.warn('读档失败', e)
@@ -138,8 +169,9 @@ export function exportSlot(n) {
 }
 
 export function importToSlot(n, text) {
-  const data = JSON.parse(text)              // 非法 JSON 会抛错，调用方捕获
-  if (data.version !== 3 || !data.player) throw new Error('不是有效的机甲时代存档')
+  let data = JSON.parse(text)                // 非法 JSON 会抛错，调用方捕获
+  if ((data.version !== 3 && data.version !== 4) || !data.player) throw new Error('不是有效的机甲时代存档')
+  if (data.version === 3) data = migrateV3toV4(data)   // 旧档导入自动升级 v4
   localStorage.setItem(slotKey(n), JSON.stringify(data))
   return true
 }

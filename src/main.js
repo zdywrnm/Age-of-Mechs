@@ -128,7 +128,7 @@ async function boot(newConfig) {
   await tick()
   loading.done()
   if (save?.migratedFromV1) {
-    setTimeout(() => alert('检测到第一章的存档！你的等级、齿轮和任务进度都带过来了。\n世界变大了，位置回到了出生点～'), 100)
+    setTimeout(() => alert('欢迎回来！初始城镇变成了六区大岛（城市/竹林/巨石阵/群山/鬼城/森林）。\n你的等级、齿轮、任务、装备、宠物、其他大陆的建造都完整保留了。\n只有旧主岛上的方块改动被清理，位置回到了城南出生点～'), 100)
   }
   startGame(robotConfig, save)
 }
