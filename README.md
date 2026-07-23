@@ -13,6 +13,12 @@
 
 ## 怎么玩
 
+**🌐 在线试玩**：https://zdywrnm.github.io/Age-of-Mechs/
+
+**📱 安卓手机**：到 [Releases](https://github.com/zdywrnm/Age-of-Mechs/releases) 下载最新 APK 安装即玩（触屏操作：虚拟摇杆+拖屏视角）
+
+**💻 电脑本地运行**：
+
 ```bash
 npm install
 npm run dev
