@@ -1,0 +1,56 @@
+name: 自动更新开发日志
+
+# 每次推送到 main 都自动把新提交写进 CHANGELOG.md 再回写仓库。
+# 防循环：workflow 自己的回写提交带 [skip changelog]，并在下方跳过。
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: changelog
+  cancel-in-progress: false
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    # 跳过由本 workflow 自己产生的回写提交，避免无限触发
+    if: ${{ !contains(github.event.head_commit.message, '[skip changelog]') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # 需要完整历史来生成变更记录
+
+      - name: 生成 CHANGELOG.md
+        run: |
+          {
+            echo "# 变更记录 · Changelog"
+            echo ""
+            echo "> 本文件由 GitHub Actions 在每次推送到 main 时自动生成，收录每一条提交。"
+            echo "> 重要版本的详细叙事与踩坑复盘见 [开发文档.md](开发文档.md)。"
+            echo ""
+            last_date=""
+            git log --no-merges --date=short --pretty=format:'%ad%x09%h%x09%s' | while IFS=$'\t' read -r d h s; do
+              if [ "$d" != "$last_date" ]; then
+                [ -n "$last_date" ] && echo ""
+                echo "## $d"
+                echo ""
+                last_date="$d"
+              fi
+              echo "- \`$h\` $s"
+            done
+          } > CHANGELOG.md
+
+      - name: 有变化则提交回写
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "CHANGELOG.md 无变化，跳过提交"
+          else
+            git add CHANGELOG.md
+            git commit -m "docs: 自动更新变更记录 [skip changelog]"
+            git push
+          fi
