@@ -82,9 +82,16 @@ export class InventoryUI {
       } else if (def.use || def.equip) {
         const btn = document.createElement('button'); btn.className = 'mini-btn'
         const equipped = def.equip && p.equipment[def.equip] === id
-        btn.textContent = def.use ? '使用' : (equipped ? '已装备' : '装备')
-        if (equipped) btn.disabled = true
-        btn.onclick = () => { p.useItem(id, this.ctx.hud); this.render(); this.ctx.onChanged && this.ctx.onChanged() }
+        btn.textContent = def.use ? '使用' : (equipped ? '卸下' : '装备')
+        btn.onclick = () => {
+          if (def.equip && equipped) {
+            p.equipment[def.equip] = null   // v4：可卸下（红眼睛卸下后 G 恢复机甲炮）
+            this.ctx.hud.toast(`${def.icon} 卸下了${def.name}`)
+          } else {
+            p.useItem(id, this.ctx.hud)
+          }
+          this.render(); this.ctx.onChanged && this.ctx.onChanged()
+        }
         cell.appendChild(btn)
       }
       if (def.desc) cell.title = def.desc
@@ -98,7 +105,9 @@ export class InventoryUI {
     const sw = p.equipment.sword ? ITEMS[p.equipment.sword] : null
     const ar = p.equipment.armor ? ITEMS[p.equipment.armor] : null
     const wg = p.equipment.wings ? ITEMS[p.equipment.wings] : null
-    eq.textContent = `当前装备：武器 ${sw ? sw.icon + sw.name + `(+${sw.atk}攻)` : '无'} ｜ 护甲 ${ar ? ar.icon + ar.name + `(-${Math.round(ar.def * 100)}%伤)` : '无'} ｜ 翅膀 ${wg ? wg.icon + wg.name : '无'}`
+    const af = p.equipment.artifact ? ITEMS[p.equipment.artifact] : null
+    const rg = p.equipment.ranged ? ITEMS[p.equipment.ranged] : null
+    eq.textContent = `当前装备：武器 ${sw ? sw.icon + sw.name + `(+${sw.atk}攻)` : '无'} ｜ 护甲 ${ar ? ar.icon + ar.name + `(-${Math.round(ar.def * 100)}%伤)` : '无'} ｜ 翅膀 ${wg ? wg.icon + wg.name : '无'} ｜ 神器 ${af ? af.icon + af.name + '(伤害×2)' : '无'} ｜ 远程 ${rg ? rg.icon + rg.name : '无'}`
     body.appendChild(eq)
   }
 

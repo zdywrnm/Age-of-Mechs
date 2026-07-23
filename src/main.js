@@ -12,7 +12,8 @@ import { generateArena, ARENA } from './worldgen/arena.js'
 import { DimensionManager } from './game/dimensions.js'
 import { Controls } from './player/controls.js'
 import { Player } from './player/player.js'
-import { Interaction } from './player/interaction.js'
+import { Interaction, raycastVoxel, rayAABB } from './player/interaction.js'
+import { ITEMS } from './game/items.js'
 import { MonsterManager } from './entities/monsters.js'
 import { ProjectileManager } from './entities/projectiles.js'
 import { DropManager } from './entities/drops.js'
@@ -160,9 +161,36 @@ function startGame(robotConfig, save) {
     }
   }
 
+  // —— v4 红眼睛：装备后 G/🔫 变即时激光（射程40 命中第一个敌人，卸下自动恢复机甲炮）——
+  function fireLaser() {
+    const def = ITEMS[player.equipment.ranged]
+    const L = def?.laser || { dmg: 100, range: 40, cd: 0.9 }
+    player.shootCooldown = L.cd
+    const eye = player.headPos(new THREE.Vector3())
+    const dir = controls.forward(new THREE.Vector3())
+    const hitBlock = raycastVoxel(ctx.world, eye, dir, L.range)   // 墙壁遮挡
+    let bd = hitBlock ? hitBlock.dist : L.range
+    let best = null
+    for (const m of monsters.list) {
+      if (m.dead) continue
+      const min = { x: m.ent.pos.x - m.w / 2, y: m.ent.pos.y, z: m.ent.pos.z - m.w / 2 }
+      const max = { x: m.ent.pos.x + m.w / 2, y: m.ent.pos.y + m.h, z: m.ent.pos.z + m.w / 2 }
+      const t = rayAABB(eye, dir, min, max)
+      if (t !== null && t < bd) { bd = t; best = m }
+    }
+    const end = eye.clone().addScaledVector(dir, bd)
+    const from = eye.clone().addScaledVector(dir, 0.5); from.y -= 0.15
+    fx.beam(from, end, '#ff2020')
+    fx.burst(end, ['#ff4040', '#ffb0a0'], { count: 8, speed: 4, up: 2, size: 0.12, additive: true })
+    if (best) monsters.hitMonster(best, Math.round(L.dmg * player.damageMult()), player.ent.pos)
+    player.swing()
+    audio.sfx('laser')
+  }
+
   // —— 远程炮：G 键 / 触屏「炮」发射，弹药随齿轮升级 ——
   function fireCannon() {
     if (!player.canShoot()) return
+    if (player.equipment.ranged) { fireLaser(); return }
     const w = player.weaponTier()
     player.shootCooldown = w.cd
     const eye = player.headPos(new THREE.Vector3())
@@ -287,6 +315,7 @@ function startGame(robotConfig, save) {
     onBedUse: () => useBed(),
     onBlockMined: (id, x, y, z) => {
       quests.onMined(id)
+      if (id === B.TOTEM_BLOCK) grantArtifact()   // v4：矿山图腾节点，挖到即得神器
       fluids.notifyRemoved(x, y, z)
       // 挖掘碎屑（同色小方块四溅）
       fx.burst(new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5), blockColors(id),
@@ -300,6 +329,21 @@ function startGame(robotConfig, save) {
   const interaction = new Interaction(ictx)
   // Interaction 的放置回调签名对齐（带坐标）
   const origOnRightDown = interaction.onRightDown.bind(interaction)
+
+  // —— v4 神秘图腾发放（唯一神器；重复获得 → 25 齿轮）——
+  function grantArtifact() {
+    if (player.items.get('totem_artifact')) {
+      player.addGears(25)
+      hud.toast('🗿 图腾与你已有的那尊产生共鸣，化作 25 个齿轮！')
+      doSave()
+      return
+    }
+    player.addItem('totem_artifact')
+    player.equipment.artifact = 'totem_artifact'
+    hud.banner('🗿 获得神器 · 神秘图腾！', '灰色的身躯、红色的边框、两双红眼……你的所有伤害翻倍！')
+    audio.sfx('fanfare')
+    doSave()
+  }
 
   // —— 齿轮授予 ——
   function grantGear(kind) {
@@ -700,7 +744,7 @@ function startGame(robotConfig, save) {
         const evil = m.def.tags.includes('邪恶类')
         m.stunT = evil ? 2.5 : 1
         if (evil) {
-          monsters.hitMonster(m, CFG.FLASH_DMG, null); n++
+          monsters.hitMonster(m, Math.round(CFG.FLASH_DMG * player.damageMult()), null); n++   // v4：图腾倍率
           fx.burst(new THREE.Vector3(m.ent.pos.x, m.ent.pos.y + m.h * 0.6, m.ent.pos.z),
             ['#ffe89a', '#fff3c4'], { count: 10, speed: 3, up: 2.5, size: 0.14, additive: true })
         }
@@ -875,6 +919,7 @@ function startGame(robotConfig, save) {
       giveBlock: (id, n) => player.addBlock(id, n),
       give: (id, n = 1) => player.addItem(id, n),
       gainGear: grantGear,
+      grantArtifact,
       frame: t => frame(t),
     }
   }

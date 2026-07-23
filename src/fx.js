@@ -10,6 +10,7 @@ export class FX {
     this.pool = []
     this.active = []
     this.rings = []
+    this.beams = []      // v4：红眼激光光束
     this.shakeAmp = 0
     const geo = new THREE.BoxGeometry(1, 1, 1)
     for (let i = 0; i < POOL_SIZE; i++) {
@@ -130,6 +131,20 @@ export class FX {
     this.rings.push({ m, t: 0, life, maxR })
   }
 
+  // v4 激光光束：细长发光方柱，瞬间出现快速淡出（红眼睛武器）
+  beam(from, to, color = '#ff2020') {
+    const len = from.distanceTo(to)
+    if (len < 0.5) return
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(0.09, 0.09, len),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })
+    )
+    m.position.copy(from).add(to).multiplyScalar(0.5)
+    m.lookAt(to)
+    this.scene.add(m)
+    this.beams.push({ m, t: 0, life: 0.13 })
+  }
+
   // 全屏白闪（光明技能）
   flash(ms = 260) {
     this.flashEl.style.transition = 'none'
@@ -147,6 +162,8 @@ export class FX {
     this.active = []
     for (const r of this.rings) { this.scene.remove(r.m); r.m.geometry.dispose(); r.m.material.dispose() }
     this.rings = []
+    for (const b of this.beams) { this.scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose() }
+    this.beams = []
   }
 
   update(dt) {
@@ -172,6 +189,12 @@ export class FX {
       r.m.material.opacity = 0.9 * (1 - k)
     }
     this.rings = this.rings.filter(r => !r.dead)
+    for (const b of this.beams) {
+      b.t += dt
+      if (b.t >= b.life) { this.scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose(); b.dead = true; continue }
+      b.m.material.opacity = 0.95 * (1 - b.t / b.life)
+    }
+    this.beams = this.beams.filter(b => !b.dead)
   }
 
   // 相机震动偏移（主循环在 updateCamera 之后调用）
