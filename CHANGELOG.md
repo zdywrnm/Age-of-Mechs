@@ -5,6 +5,20 @@
 
 ## 2026-07-24
 
+- `85d5c9a` chore: gitignore *.apk（打包产物走 Release 不入库）
+- `28761a8` docs: v5.0 文档四件套 + 版本号 5.0.0
+- `5e54eb4` fix: 宠物朝向也删 +Math.PI（QA 发现的第四处遗漏）
+- `4adb2fb` feat: C10 v5 存档迁移（ISLAND_REV 4，坐标系重构清主世界编辑保进度）
+- `36a6f76` feat: C9 环城平原郊区（城市→郊区→六区自然过渡）
+- `19a1340` feat: C8 中央城市大幅扩大 96×96 + 细节
+- `099f009` feat: C7 六区扩大 + 密度场铺装（填满有机团块）
+- `507ad74` feat: C6 细节原语 + 6 装饰方块 + decor.js
+- `dc7e71a` feat: C5 地形仿真跟随有机区域
+- `14e2f0a` feat: C4 有机区域场（域扭曲 Voronoi，不再方块拼接）
+- `ed813cc` feat: C3 POS 全参数化到岛心 IC + 世界重定位 + 流式 chunk 加载
+- `b8b13ed` feat: C1 世界扩容 512→1024 + DIMS.main 从 CFG 派生
+- `2d3a7bf` fix: 居民和怪物脸朝移动反方向（删三处二次翻转 +Math.PI）
+- `d6dcdd5` docs: 自动更新变更记录 [skip changelog]
 - `e6a2089` feat: v4.1 扩岛 + 平原郊区 + 郊区居民（初始城镇岛屿扩大）
 - `d45f4fb` docs: 自动更新变更记录 [skip changelog]
 - `cd29243` fix: 水下箱子打不开 + 水下挖方块/建造——射线穿透流体
