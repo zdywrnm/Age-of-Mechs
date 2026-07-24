@@ -17,6 +17,8 @@ const MM_COLORS = {
   // v4 六区
   38: '#4fae4a', 39: '#46a83d', 40: '#5fd8e8', 41: '#e83a5a', 42: '#3a6ae8', 43: '#8a8a92',
   44: '#3a3532', 45: '#b4553a', 46: '#e8e2d4', 47: '#232328', 48: '#a5202e', 49: '#d8cdb4', 50: '#c73a48',
+  // v5 装饰
+  51: '#e0342e', 52: '#f4c430', 53: '#5cb544', 54: '#8a6136', 55: '#8a837a', 56: '#ff7a1a',
 }
 function shade(hex, f) {
   const r = Math.min(255, Math.round(parseInt(hex.slice(1, 3), 16) * f))

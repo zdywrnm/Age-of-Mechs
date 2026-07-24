@@ -562,6 +562,69 @@ export function createAtlas() {
     for (let r = 12; r < TILE; r += 16) ctx.fillRect(x, y + r, TILE, 2)
   })()
 
+  // —— v5 装饰 tile ——
+  // 54 红花：草底 + 红花瓣 + 黄蕊 + 绿茎
+  fill(54, '#4a9a3e')
+  ;(() => { const [x, y] = tileXY(54)
+    for (let n = 0; n < 5; n++) {
+      const cx = x + 12 + rand() * 40, cy = y + 16 + rand() * 40
+      ctx.strokeStyle = '#2f7a2b'; ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(cx, cy + 10); ctx.lineTo(cx, cy); ctx.stroke()
+      ctx.fillStyle = '#e0342e'
+      for (const [ox, oz] of [[-4, 0], [4, 0], [0, -4], [0, 4]]) ctx.fillRect(cx + ox - 2, cy + oz - 2, 4, 4)
+      ctx.fillStyle = '#ffd23a'; ctx.fillRect(cx - 2, cy - 2, 4, 4)
+    }
+  })()
+  // 55 黄花
+  fill(55, '#4a9a3e')
+  ;(() => { const [x, y] = tileXY(55)
+    for (let n = 0; n < 5; n++) {
+      const cx = x + 12 + rand() * 40, cy = y + 16 + rand() * 40
+      ctx.strokeStyle = '#2f7a2b'; ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(cx, cy + 10); ctx.lineTo(cx, cy); ctx.stroke()
+      ctx.fillStyle = '#f4c430'
+      for (const [ox, oz] of [[-4, 0], [4, 0], [0, -4], [0, 4]]) ctx.fillRect(cx + ox - 2, cy + oz - 2, 4, 4)
+      ctx.fillStyle = '#c8760f'; ctx.fillRect(cx - 2, cy - 2, 4, 4)
+    }
+  })()
+  // 56 高草：草底 + 竖向草叶
+  fill(56, '#4a9a3e')
+  ;(() => { const [x, y] = tileXY(56)
+    ctx.strokeStyle = '#5cb544'; ctx.lineWidth = 2; ctx.lineCap = 'round'
+    for (let n = 0; n < 18; n++) {
+      const bx = x + 4 + rand() * 56, h = 10 + rand() * 18
+      ctx.strokeStyle = rand() < 0.5 ? '#5cb544' : '#4a9a3e'
+      ctx.beginPath(); ctx.moveTo(bx, y + 60); ctx.lineTo(bx + (rand() - 0.5) * 6, y + 60 - h); ctx.stroke()
+    }
+  })()
+  // 57 栅栏：木色竖条 + 横档（半透背景）
+  ;(() => { const i = 57; const [x, y] = tileXY(i)
+    ctx.clearRect(x, y, TILE, TILE)
+    ctx.fillStyle = '#8a6136'
+    ctx.fillRect(x + 14, y, 8, TILE); ctx.fillRect(x + 42, y, 8, TILE)   // 两根立柱
+    ctx.fillRect(x, y + 16, TILE, 6); ctx.fillRect(x, y + 40, TILE, 6)   // 两根横档
+    ctx.fillStyle = '#6b4a29'
+    ctx.fillRect(x + 14, y, 2, TILE); ctx.fillRect(x + 42, y, 2, TILE)
+  })()
+  // 58 砾石：杂色小石子
+  fbmTile(58, [{ t: 0.4, c: '#7a736c' }, { t: 0.55, c: '#8a837a' }, { t: 0.72, c: '#9a9088' }, { t: 1, c: '#a89e94' }], 7, 5811)
+  speckle(58, ['#5f584f', '#b0a89c', '#6a6259'], 200, 3)
+  // 59 篝火：石圈 + 木柴 + 火焰
+  fill(59, '#3a3532')
+  ;(() => { const [x, y] = tileXY(59)
+    ctx.fillStyle = '#6a625a'   // 石圈
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) ctx.fillRect(x + 32 + Math.cos(a) * 24 - 3, y + 32 + Math.sin(a) * 24 - 3, 6, 6)
+    ctx.strokeStyle = '#5f4326'; ctx.lineWidth = 4   // 交叉木柴
+    ctx.beginPath(); ctx.moveTo(x + 18, y + 44); ctx.lineTo(x + 46, y + 22); ctx.moveTo(x + 46, y + 44); ctx.lineTo(x + 18, y + 22); ctx.stroke()
+    for (let n = 0; n < 10; n++) {   // 火焰
+      const fx = x + 24 + rand() * 16, fh = 12 + rand() * 20
+      const g = ctx.createLinearGradient(0, y + 40, 0, y + 40 - fh)
+      g.addColorStop(0, '#ffdd55'); g.addColorStop(1, 'rgba(255,60,10,0.2)')
+      ctx.fillStyle = g
+      ctx.beginPath(); ctx.moveTo(fx - 4, y + 40); ctx.lineTo(fx, y + 40 - fh); ctx.lineTo(fx + 4, y + 40); ctx.fill()
+    }
+  })()
+
   const texture = new THREE.CanvasTexture(canvas)
   // 近处保持像素感、远处用 mipmap 消闪烁摩尔纹
   texture.magFilter = THREE.NearestFilter

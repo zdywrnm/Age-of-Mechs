@@ -17,6 +17,8 @@ export const B = {
   BAMBOO: 38, BAMBOO_LEAVES: 39, ORE_DIAMOND: 40, ORE_RUBY: 41, ORE_SAPPHIRE: 42,
   TOTEM_BLOCK: 43, ASH_BRICK: 44, ROOF_TILE: 45, FUR_WHITE: 46, FUR_BLACK: 47,
   CARPET_RED: 48, MURAL: 49, MARKET_CLOTH: 50,
+  // —— v5 装饰方块 ——
+  FLOWER_RED: 51, FLOWER_YELLOW: 52, TALL_GRASS: 53, FENCE: 54, GRAVEL: 55, CAMPFIRE: 56,
 }
 
 export const BLOCKS = [
@@ -73,6 +75,13 @@ export const BLOCKS = [
   { name: '红地毯',     hardness: 0.3,    tiles: { top: 51, side: 51, bottom: 51 }, drop: B.CARPET_RED },
   { name: '壁画',       hardness: 1.0,    tiles: { top: 52, side: 52, bottom: 52 }, drop: B.MURAL },
   { name: '摊布',       hardness: 0.3,    tiles: { top: 53, side: 53, bottom: 53 }, drop: B.MARKET_CLOTH },
+  // —— v5 装饰方块 ——
+  { name: '红花',       hardness: 0.1,    tiles: { top: 54, side: 54, bottom: 54 }, drop: B.FLOWER_RED, solid: false, opaque: false },
+  { name: '黄花',       hardness: 0.1,    tiles: { top: 55, side: 55, bottom: 55 }, drop: B.FLOWER_YELLOW, solid: false, opaque: false },
+  { name: '高草',       hardness: 0.1,    tiles: { top: 56, side: 56, bottom: 56 }, drop: 0, solid: false, opaque: false },
+  { name: '栅栏',       hardness: 0.5,    tiles: { top: 57, side: 57, bottom: 57 }, drop: B.FENCE, opaque: false },
+  { name: '砾石',       hardness: 0.6,    tiles: { top: 58, side: 58, bottom: 58 }, drop: B.GRAVEL },
+  { name: '篝火',       hardness: 0.4,    tiles: { top: 59, side: 59, bottom: 59 }, drop: 0, opaque: false, damage: 2 },
 ]
 
 export function isSolid(id) { return id !== B.AIR && BLOCKS[id].solid !== false }
@@ -82,4 +91,5 @@ export function isBreakable(id) { return id !== B.AIR && BLOCKS[id].hardness !==
 export const PLACEABLE = [B.MUD, B.WOOD, B.STONE, B.BRICK, B.SAND, B.ORE, B.GOLD, B.CODE, B.PLANK,
   B.MAGMA_STONE, B.MAGMA_WOOD, B.END_STONE, B.PALACE_BRICK, B.JUNGLE_BRICK, B.SCORCHED, B.GLOWSTONE, B.BED,
   B.BAMBOO, B.ORE_DIAMOND, B.ORE_RUBY, B.ORE_SAPPHIRE, B.ASH_BRICK, B.ROOF_TILE,
-  B.FUR_WHITE, B.FUR_BLACK, B.CARPET_RED, B.MURAL, B.MARKET_CLOTH]
+  B.FUR_WHITE, B.FUR_BLACK, B.CARPET_RED, B.MURAL, B.MARKET_CLOTH,
+  B.FLOWER_RED, B.FLOWER_YELLOW, B.TALL_GRASS, B.FENCE, B.GRAVEL]
