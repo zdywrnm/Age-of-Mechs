@@ -77,7 +77,7 @@ export class Villager {
         this.pos.x += (dx / d) * step
         this.pos.z += (dz / d) * step
         if (world) this.pos.y = world.surfaceAt(Math.floor(this.pos.x), Math.floor(this.pos.z)) + 1
-        this.group.rotation.y = Math.atan2(-dx, -dz) + Math.PI
+        this.group.rotation.y = Math.atan2(-dx, -dz)   // 模型面朝 -Z，脸朝移动方向
         const sw = Math.sin(this.t * 7) * 0.5
         this.legL.rotation.x = sw; this.legR.rotation.x = -sw
         this.armL.rotation.x = -sw * 0.6; this.armR.rotation.x = sw * 0.6

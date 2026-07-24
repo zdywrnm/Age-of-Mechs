@@ -550,8 +550,8 @@ export class MonsterManager {
 
       m.group.position.set(m.ent.pos.x, m.ent.pos.y, m.ent.pos.z)
       const velSp = Math.hypot(m.ent.vel.x, m.ent.vel.z)
-      if (m.state === 'chase' && !m.def.swoop && distH > 0.1) m.group.rotation.y = Math.atan2(-dx, -dz) + Math.PI
-      else if (velSp > 0.5) m.group.rotation.y = Math.atan2(-m.ent.vel.x, -m.ent.vel.z) + Math.PI
+      if (m.state === 'chase' && !m.def.swoop && distH > 0.1) m.group.rotation.y = Math.atan2(-dx, -dz)   // 模型面朝 -Z，脸朝目标
+      else if (velSp > 0.5) m.group.rotation.y = Math.atan2(-m.ent.vel.x, -m.ent.vel.z)   // 脸朝移动方向
 
       // —— 肢体动画 + 通用步态 ——
       m.animPh = (m.animPh || 0) + dt * (1 + Math.min(3, velSp * 0.5))
