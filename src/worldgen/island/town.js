@@ -1,54 +1,47 @@
-// ① 中央城市（机甲古城）：城墙 64×64、四门门楼、十字大道、22 座可进入房屋、
-// 市集摊位、集市广场（含地下之城井口）。城内 = 绝对安全区（判定在 zones.js）。
+// ① 中央城市（机甲古城）：城墙 96×96、四门门楼、十字大道、约 40 座可进入房屋、
+// 市集摊位、集市广场、路灯/行道树/喷泉/水井/花坛。城内 = 绝对安全区（判定在 zones.js）。
 import { CFG, POS } from '../../config.js'
 import { B } from '../../blocks.js'
 import { fill, flatten } from '../lib.js'
+import { lampPost, streetTree, fountain, well, flowerPatch, bench } from '../decor.js'
+import { mulberry32 } from '../../noise.js'
 
-// v5：城内坐标原按旧城心 128 手工核对，整体位移到新城心 IC（DX/DZ = IC-128）
-// （C8 会把这里改成程序化布局并扩大到 ~40 座；此段只搬家不改形状）
-const DX = CFG.ISLAND_CX - 128, DZ = CFG.ISLAND_CZ - 128
-// 22 座房屋（12住宅/4商铺/2工坊/1旅店/1仓库/2守卫屋）
-const HOUSES = ([
-  // 西北象限
-  { x: 99,  z: 99,  w: 8,  d: 6, type: 'home',  door: 'S' },
-  { x: 109, z: 99,  w: 8,  d: 6, type: 'home',  door: 'S' },
-  { x: 119, z: 99,  w: 6,  d: 6, type: 'guard', door: 'E' },   // 北门守卫屋
-  // 东北象限
-  { x: 133, z: 99,  w: 8,  d: 6, type: 'home',  door: 'S' },
-  { x: 143, z: 99,  w: 8,  d: 6, type: 'home',  door: 'S' },
-  { x: 152, z: 99,  w: 6,  d: 6, type: 'home',  door: 'S' },
-  { x: 133, z: 108, w: 8,  d: 7, type: 'shop',  door: 'W', catalog: 'food',      label: '🍎 食品铺·果婶' },
-  { x: 143, z: 108, w: 8,  d: 7, type: 'shop',  door: 'S', catalog: 'build',     label: '🧱 建材铺·砖叔' },
-  { x: 152, z: 108, w: 6,  d: 7, type: 'work',  door: 'S' },
-  // 西南象限
-  { x: 99,  z: 133, w: 8,  d: 6, type: 'home',  door: 'N' },
-  { x: 109, z: 133, w: 8,  d: 6, type: 'shop',  door: 'N', catalog: 'combat',    label: '⚔️ 装备铺·钢爷' },
-  { x: 99,  z: 142, w: 8,  d: 7, type: 'home',  door: 'E' },
-  { x: 109, z: 142, w: 8,  d: 7, type: 'home',  door: 'E' },
-  { x: 118, z: 142, w: 6,  d: 7, type: 'work',  door: 'E' },
-  { x: 119, z: 152, w: 6,  d: 6, type: 'guard', door: 'E' },   // 南门守卫屋
-  // 东南象限
-  { x: 139, z: 133, w: 8,  d: 6, type: 'shop',  door: 'W', catalog: 'transport', label: '🛶 船具铺·帆帆' },
-  { x: 149, z: 133, w: 8,  d: 6, type: 'home',  door: 'W' },
-  { x: 133, z: 142, w: 10, d: 8, type: 'inn',   door: 'W' },   // 旅店（两层）
-  { x: 146, z: 142, w: 8,  d: 7, type: 'ware',  door: 'W' },   // 仓库（福利箱）
-  { x: 133, z: 152, w: 8,  d: 6, type: 'home',  door: 'N' },
-  { x: 143, z: 152, w: 8,  d: 6, type: 'home',  door: 'N' },
-  { x: 152, z: 152, w: 6,  d: 6, type: 'home',  door: 'N' },
-]).map(h => ({ ...h, x: h.x + DX, z: h.z + DZ }))
-
-// 市集摊位（广场边 + 南大道两侧）
-const STALLS = [[105, 110], [113, 110], [120, 110], [105, 122], [120, 122], [113, 122],
-  [124, 140], [124, 148], [132, 140], [132, 148]].map(([x, z]) => [x + DX, z + DZ])
-
-// 居民漫步范围（只在大道/广场上，避开塔区和建筑——小人不穿墙）
-const RESIDENT_PATCHES = [
-  [126, 99, 130, 118],    // 北大道
-  [126, 138, 130, 157],   // 南大道
-  [139, 126, 157, 130],   // 东大道
-  [99, 126, 117, 130],    // 西大道
-  [105, 109, 118, 123],   // 集市广场
-].map(([a, b, c, d]) => [a + DX, b + DZ, c + DX, d + DZ])
+// 程序化生成房屋列表（四象限网格，避开十字大道/塔广场/城墙/集市广场）
+function genHouses(cx, cz, half, keepOut) {
+  const overlaps = (x, z, w, d) => keepOut && x <= keepOut.x1 && x + w >= keepOut.x0 && z <= keepOut.z1 && z + d >= keepOut.z0
+  const houses = []
+  const shopSpecs = [
+    { catalog: 'food', label: '🍎 食品铺·果婶' },
+    { catalog: 'build', label: '🧱 建材铺·砖叔' },
+    { catalog: 'combat', label: '⚔️ 装备铺·钢爷' },
+    { catalog: 'transport', label: '🛶 船具铺·帆帆' },
+  ]
+  let shopI = 0, special = 0
+  // 四象限：(sx,sz) 方向；门朝水平大道（朝城心 z）
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const door = sz < 0 ? 'S' : 'N'
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        const w = 8, d = 6
+        // 从城墙侧向大道排布：col 越大越靠城心
+        const bx = cx + sx * (half - 6 - col * 13) - (sx < 0 ? 0 : w)
+        const bz = cz + sz * (half - 6 - row * 12) - (sz < 0 ? 0 : d)
+        let type = 'home'
+        // 每象限最靠门的一座 = 商铺；再点缀工坊/旅店/仓库/守卫
+        let spec = {}
+        if (row === 0 && col === 1 && shopI < 4) { type = 'shop'; spec = shopSpecs[shopI++] }
+        else if (row === 2 && col === 2 && special === 0) { type = 'inn'; special = 1 }
+        else if (row === 2 && col === 1 && special === 1) { type = 'ware'; special = 2 }
+        else if (col === 0 && row === 2) type = 'guard'
+        else if (col === 0 && row === 1) type = 'work'
+        const hw = type === 'inn' ? 10 : w, hd = type === 'inn' ? 8 : d
+        if (overlaps(bx, bz, hw, hd)) continue   // 跳过压在集市广场上的
+        houses.push({ x: bx, z: bz, w: hw, d: hd, type, door, ...spec })
+      }
+    }
+  }
+  return houses
+}
 
 export function buildTown(world, STRUCT) {
   const { x0, z0, x1, z1 } = POS.CITY
@@ -97,16 +90,26 @@ export function buildTown(world, STRUCT) {
   }
 
   // —— 十字大道（5 宽，四门通塔，以城心 IC 为轴）+ 集市广场 ——
-  const cxA = CFG.ISLAND_CX, czA = CFG.ISLAND_CZ
+  const cxA = CFG.ISLAND_CX, czA = CFG.ISLAND_CZ, half = (x1 - x0) / 2
+  const rand = mulberry32(CFG.SEED + 808)
   for (let z = z0 + 1; z <= z1 - 1; z++) for (let x = cxA - 2; x <= cxA + 2; x++) world.setRaw(x, g, z, B.BRICK)
   for (let x = x0 + 1; x <= x1 - 1; x++) for (let z = czA - 2; z <= czA + 2; z++) world.setRaw(x, g, z, B.BRICK)
-  for (let x = cxA - 24; x <= cxA - 6; x++) for (let z = czA - 20; z <= czA - 4; z++) world.setRaw(x, g, z, B.BRICK)
+  // 象限内街巷（3 宽砾石路，连房屋网格）
+  for (const s of [-1, 1]) {
+    for (let x = x0 + 3; x <= x1 - 3; x++) world.setRaw(x, g, czA + s * 20, world.get(x, g, czA + s * 20) === B.BRICK ? B.BRICK : B.GRAVEL)
+    for (let z = z0 + 3; z <= z1 - 3; z++) world.setRaw(cxA + s * 20, g, z, world.get(cxA + s * 20, g, z) === B.BRICK ? B.BRICK : B.GRAVEL)
+  }
+  // 集市广场（塔西南）
+  const plaza = { x0: cxA - 30, z0: czA - 26, x1: cxA - 10, z1: czA - 6 }
+  for (let x = plaza.x0; x <= plaza.x1; x++) for (let z = plaza.z0; z <= plaza.z1; z++) world.setRaw(x, g, z, B.BRICK)
 
-  // —— 22 座房屋 ——
+  // —— 约 30 座房屋（程序化四象限网格，避开集市广场）——
   const houses = []
-  for (const h of HOUSES) buildHouse(world, h, g, houses, STRUCT)
+  for (const h of genHouses(cxA, czA, half, plaza)) buildHouse(world, h, g, houses, STRUCT)
 
-  // —— 市集摊位（双柱 + 条纹摊布顶 + 金柜台）——
+  // —— 市集摊位（塔西南广场边）——
+  const STALLS = []
+  for (let sx = cxA - 28; sx <= cxA - 12; sx += 5) for (let sz = czA - 24; sz <= czA - 8; sz += 6) STALLS.push([sx, sz])
   for (const [sx, sz] of STALLS) {
     fill(world, sx, g + 1, sz, sx, g + 2, sz, B.WOOD)
     fill(world, sx + 2, g + 1, sz, sx + 2, g + 2, sz, B.WOOD)
@@ -114,14 +117,32 @@ export function buildTown(world, STRUCT) {
     world.setRaw(sx + 1, g + 1, sz, B.GOLD)
   }
 
-  // —— 广场与大道灯 ——
-  STRUCT.lights.push([cxA - 15, g + 5, czA - 12], [cxA, g + 4, czA + 18], [cxA, g + 4, czA - 18])
+  // —— 城市细节：喷泉/水井/花坛/路灯/行道树/长椅 ——
+  fountain(world, plaza.x0 + 10, plaza.z0 + 10, STRUCT.lights)   // 集市广场喷泉（避开大道）
+  well(world, cxA - 20, czA + 20); well(world, cxA + 22, czA - 20)
+  flowerPatch(world, cxA + 18, czA + 18, 5, rand)
+  flowerPatch(world, cxA - 18, czA - 20, 4, rand)
+  for (let d = 8; d <= half - 6; d += 6) {                 // 十字大道两侧路灯 + 行道树
+    for (const s of [-1, 1]) {
+      lampPost(world, cxA + s * 4, czA + (d % 12 === 0 ? d : -d), STRUCT.lights)
+      if (d % 12 === 0) { streetTree(world, cxA - 4, czA + s * d); streetTree(world, cxA + 4, czA - s * d) }
+    }
+  }
+  for (const [bx, bz] of [[cxA - 3, czA + 10], [cxA + 3, czA + 10], [cxA - 3, czA - 12], [cxA + 3, czA - 12]]) bench(world, bx, bz)
 
+  // —— 居民漫步区（四条大道 + 广场，约 28 人）——
+  const RES = [
+    [cxA - 2, z0 + 3, cxA + 2, czA - 12],   // 北
+    [cxA - 2, czA + 12, cxA + 2, z1 - 3],   // 南
+    [cxA + 12, czA - 2, x1 - 3, czA + 2],   // 东
+    [x0 + 3, czA - 2, cxA - 12, czA + 2],   // 西
+    [cxA - 28, czA - 24, cxA - 12, czA - 8], // 集市广场
+  ]
   STRUCT.town = {
     houses,
     vendors: houses.filter(h => h.vendor).map(h => h.vendor),
-    residents: RESIDENT_PATCHES.flatMap((patch, i) => {
-      const n = i === 4 ? 4 : 3   // 广场 4 人，四条大道各 3 人 = 16
+    residents: RES.flatMap((patch, i) => {
+      const n = i === 4 ? 8 : 5   // 广场 8 人 + 四条大道各 5 人 = 28
       return Array.from({ length: n }, (_, k) => ({
         patch,
         pos: [patch[0] + 1 + (k * 7) % Math.max(1, patch[2] - patch[0] - 1), g + 1, patch[1] + 1 + (k * 11) % Math.max(1, patch[3] - patch[1] - 1)],

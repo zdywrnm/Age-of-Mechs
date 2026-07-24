@@ -105,9 +105,9 @@ check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && ST
   const town = STRUCT.town
   check('城市已生成', !!town)
   if (town) {
-    check('房屋数量 = 22', town.houses.length === 22, `实际 ${town.houses.length}`)
-    check('商贩数量 = 4', town.vendors.length === 4)
-    check('居民数量 = 16', town.residents.length === 16)
+    check('房屋数量 ≥ 28', town.houses.length >= 28, `实际 ${town.houses.length}`)
+    check('商贩数量 = 4', town.vendors.length === 4, `实际 ${town.vendors.length}`)
+    check('居民数量 = 28', town.residents.length === 28, `实际 ${town.residents.length}`)
     // 每座房屋：门口 2 格空气可进，门里地板实心
     for (const h of town.houses) {
       const [dx, dz] = h.doorCell
@@ -211,10 +211,18 @@ for (const s of SITES) {
   }
   check('区域不侵入城墙', !bad, bad || '')
 }
-// (3) 城市与各区之间存在 null 平原过渡带（不是方块拼接）
+// (3) 城市与各区之间存在 null 平原过渡带（沿城心→区心连线扫描，出城后进区前必有 null）
 for (const s of SITES) {
-  const mx = Math.round((POS.TOWER_C.x + s.cx) / 2), mz = Math.round((POS.TOWER_C.z + s.cz) / 2)
-  check(`城→${s.id} 之间有平原带`, zoneAt(mx, mz) === null, `中点(${mx},${mz})→${zoneAt(mx, mz)?.id}`)
+  let sawPlains = false
+  const steps = 48
+  for (let i = 0; i <= steps; i++) {
+    const x = Math.round(POS.TOWER_C.x + (s.cx - POS.TOWER_C.x) * i / steps)
+    const z = Math.round(POS.TOWER_C.z + (s.cz - POS.TOWER_C.z) * i / steps)
+    const zn = zoneAt(x, z)
+    if (zn && zn.id === s.id) break   // 进区了，停止
+    if (!zn) sawPlains = true         // 出城后、进区前遇到平原（null）
+  }
+  check(`城→${s.id} 之间有平原带`, sawPlains)
 }
 check('真远海不在任何区域', zoneAt(900, 900) === null)
 

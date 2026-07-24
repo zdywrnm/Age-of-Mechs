@@ -1,6 +1,6 @@
 // 初始岛心（唯一真源）——未来挪岛/加新岛只改这一个基准点，所有初始岛坐标 isl() 派生
 export const IC = { x: 320, z: 320 }
-const CITY_HALF = 32                 // 城墙半宽（C8 会扩大到 48）
+const CITY_HALF = 48                 // 城墙半宽（v5 扩大：城 96×96）
 const isl = (dx, dz, e = {}) => ({ x: IC.x + dx, z: IC.z + dz, ...e })
 
 // 全局常量配置 —— 所有可调数值集中在这里
