@@ -1,7 +1,8 @@
 // 全局常量配置 —— 所有可调数值集中在这里
 export const CFG = {
-  // 主世界尺寸（v3：512² 大世界，各岛拉开 120+ 格海面）
-  SX: 512, SY: 200, SZ: 512,
+  // 主世界尺寸（v5：1024² 大世界，为大幅扩大的初始岛 + 未来更多大岛留余地）
+  // ⚠️ 内存：1024²×200 ≈ 200MB 扁平数组；若低端安卓 OOM，改回 768 即可（单常量）
+  SX: 1024, SY: 200, SZ: 1024,
   CHUNK: 16,
   SEED: 20260722,
   SURFACE: 112,                   // 初始城镇岛地表高度
@@ -94,9 +95,9 @@ export const CFG = {
   AUTOSAVE_INTERVAL: 5,
 }
 
-// 维度定义
+// 维度定义（main 从 CFG 派生，杜绝尺寸双写漂移）
 export const DIMS = {
-  main:  { sx: 512, sy: 200, sz: 512 },
+  main:  { sx: CFG.SX, sy: CFG.SY, sz: CFG.SZ },
   hell:  { sx: 192, sy: 96,  sz: 192 },
   void:  { sx: 128, sy: 80,  sz: 128 },
   arena: { sx: 48,  sy: 32,  sz: 48 },

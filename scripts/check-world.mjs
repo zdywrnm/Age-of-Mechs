@@ -17,7 +17,7 @@ function check(name, cond, detail = '') {
 const at = (w, p) => w.get(p[0], p[1], p[2])
 const name = id => `B[${id}]`
 
-console.log('生成主世界（512×200×512）…')
+console.log(`生成主世界（${DIMS.main.sx}×${DIMS.main.sy}×${DIMS.main.sz}）…`)
 const world = new World(DIMS.main)
 generateTerrain(world)
 buildStructures(world)
