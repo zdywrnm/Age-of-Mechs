@@ -2,8 +2,10 @@
 // 神殿：一层植物大厅 / 二层墙挂武器+封闭 Boss 场（远古熊猫）/ 三层宝藏（Boss 死后开放）
 import { CFG, POS } from '../../config.js'
 import { B } from '../../blocks.js'
-import { fill, flatten } from '../lib.js'
+import { fill, flatten, scatter } from '../lib.js'
 import { mulberry32 } from '../../noise.js'
+import { zoneAt, regionWeight } from '../../game/zones.js'
+import { pond, flowerPatch } from '../decor.js'
 
 function bamboo(world, x, z, h) {
   const g = world.surfaceAt(x, z)
@@ -20,17 +22,20 @@ export function buildBamboo(world, STRUCT) {
   const rand = mulberry32(CFG.SEED + 202)
   const c = POS.BAMBOO_C
 
-  // —— 密竹（圆形范围内，避开神殿与出生小径）——
+  // —— 密竹（填满有机竹林区，密度随 regionWeight 核心密边缘疏）——
   const temple = POS.BAMBOO_TEMPLE
-  for (let z = c.z - c.r; z <= c.z + c.r; z++) {
-    for (let x = c.x - c.r; x <= c.x + c.r; x++) {
-      if (Math.hypot(x - c.x, z - c.z) > c.r) continue
-      if (Math.hypot(x - temple.x, z - temple.z) < 10) continue     // 神殿净空
-      if (Math.abs(x - POS.BRIDGE.x1) < 4 && Math.abs(z - 128) < 3) continue  // 石桥口小径
-      // 约 1/9 密度种竹
-      if (rand() < 0.14) bamboo(world, x, z, 8 + Math.floor(rand() * 7))
-    }
-  }
+  const reach = 50
+  scatter(world, c.x - reach, c.z - reach, c.x + reach, c.z + reach, rand,
+    (x, z) => zoneAt(x, z)?.id === 'bamboo'
+      && Math.hypot(x - temple.x, z - temple.z) >= 10                          // 神殿净空
+      && !(Math.abs(x - POS.BRIDGE.x1) < 4 && Math.abs(z - CFG.ISLAND_CZ) < 3), // 石桥口小径
+    (x, z) => 0.16 * regionWeight(x, z, 'bamboo'),
+    (x, z) => bamboo(world, x, z, 8 + Math.floor(rand() * 7)))
+  // 竹林小池塘 + 花丛点缀
+  pond(world, c.x + 18, c.z - 14, 4)
+  pond(world, c.x - 20, c.z + 10, 3)
+  flowerPatch(world, c.x + 6, c.z + 18, 5, rand)
+  flowerPatch(world, c.x - 14, c.z - 18, 4, rand)
 
   // —— 隐藏图腾宝箱（竹林深处，四周竹墙围住）——
   const bc = POS.BAMBOO_CHEST

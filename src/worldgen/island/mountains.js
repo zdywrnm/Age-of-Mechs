@@ -7,14 +7,16 @@ import { mulberry32 } from '../../noise.js'
 
 export function buildMountains(world, STRUCT) {
   const rand = mulberry32(CFG.SEED + 404)   // 同存档同设备布局一致
-  const r = POS.MOUNT_RECT
+  // 采样范围扩到整个矿山有机区（C5 已把整片区抬成山峦，比旧 MOUNT_RECT 大）
+  const mc = POS.MOUNT_C, reach = 66
+  const bbx0 = mc.x - reach, bbz0 = mc.z - reach, bbW = reach * 2
 
   // 山体范围内的所有石头做候选矿脉（确定性块状替换）
   const placeVein = (id, count, rMin, rMax, yMin, yMax) => {
     let placed = 0, tries = 0
     while (placed < count && tries++ < count * 6) {
-      const bx = r.x0 + Math.floor(rand() * (r.x1 - r.x0))
-      const bz = r.z0 + Math.floor(rand() * (r.z1 - r.z0))
+      const bx = bbx0 + Math.floor(rand() * bbW)
+      const bz = bbz0 + Math.floor(rand() * bbW)
       const surf = world.surfaceAt(bx, bz)
       if (surf < CFG.SURFACE + 4) continue       // 只在真正隆起的山体里布矿
       const by = Math.round(yMin + rand() * Math.min(yMax - yMin, surf - yMin - 2))
@@ -34,15 +36,16 @@ export function buildMountains(world, STRUCT) {
     return placed
   }
 
+  // 矿脉数量按更大的山体面积上调（旧值约 ×1.6）
   const stats = {}
-  stats.ore = placeVein(B.ORE, 90, 1.4, 2.4, 60, 130)
-  stats.gold = placeVein(B.GOLD, 60, 1.2, 2.0, 55, 120)
-  stats.diamond = placeVein(B.ORE_DIAMOND, 22, 1.0, 1.6, 50, 100)
-  stats.ruby = placeVein(B.ORE_RUBY, 14, 0.9, 1.4, 50, 110)
-  stats.sapphire = placeVein(B.ORE_SAPPHIRE, 14, 0.9, 1.4, 50, 110)
-  stats.code = placeVein(B.CODE, 12, 0.9, 1.4, 45, 90)
+  stats.ore = placeVein(B.ORE, 150, 1.4, 2.6, 60, 150)
+  stats.gold = placeVein(B.GOLD, 95, 1.2, 2.0, 55, 135)
+  stats.diamond = placeVein(B.ORE_DIAMOND, 34, 1.0, 1.6, 50, 115)
+  stats.ruby = placeVein(B.ORE_RUBY, 22, 0.9, 1.4, 50, 125)
+  stats.sapphire = placeVein(B.ORE_SAPPHIRE, 22, 0.9, 1.4, 50, 125)
+  stats.code = placeVein(B.CODE, 18, 0.9, 1.4, 45, 100)
   // 神秘图腾节点：极少（单块，深处）——全山目标 1~3 个
-  stats.totem = placeVein(B.TOTEM_BLOCK, 2, 0.0, 0.3, 55, 95)
+  stats.totem = placeVein(B.TOTEM_BLOCK, 2, 0.0, 0.3, 55, 105)
 
   // —— 洞穴：每座主峰侧面掏一条斜洞（球串），洞口标记 ——
   const caves = []

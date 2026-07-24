@@ -4,15 +4,19 @@ import { CFG, POS } from '../../config.js'
 import { B } from '../../blocks.js'
 import { fill } from '../lib.js'
 import { mulberry32 } from '../../noise.js'
+import { zoneAt } from '../../game/zones.js'
 
 export function buildGhost(world, STRUCT) {
   const rand = mulberry32(CFG.SEED + 505)
-  const r = POS.GHOST_RECT
+  const c = POS.GHOST_C
+  const reach = 60
+  const inGhost = (x, z) => zoneAt(x, z)?.id === 'ghost'
   const anchors = []   // 冒烟锚点
 
-  // —— 焦黑街道：区内地表零星铺焦砖 + 焦黑土 ——
-  for (let z = r.z0; z <= r.z1; z++) {
-    for (let x = r.x0; x <= r.x1; x++) {
+  // —— 焦黑街道：填满有机鬼城区地表 ——
+  for (let z = c.z - reach; z <= c.z + reach; z++) {
+    for (let x = c.x - reach; x <= c.x + reach; x++) {
+      if (!inGhost(x, z)) continue
       const s = world.surfaceAt(x, z)
       if (s <= CFG.SEA_LEVEL) continue
       const n = rand()
@@ -21,12 +25,13 @@ export function buildGhost(world, STRUCT) {
     }
   }
 
-  // —— 约 20 处废墟（破墙 / 倒塌楼体 / 残柱），大小随机 ——
-  const ruins = 20
+  // —— 废墟（破墙 / 倒塌楼体 / 残柱）：数量随区面积缩放，散布在有机区内 ——
+  const ruins = Math.round(20 * (reach / 34) ** 2)   // 面积翻倍废墟翻倍
   let placed = 0, tries = 0
-  while (placed < ruins && tries++ < ruins * 5) {
-    const cx = r.x0 + 4 + Math.floor(rand() * (r.x1 - r.x0 - 8))
-    const cz = r.z0 + 4 + Math.floor(rand() * (r.z1 - r.z0 - 8))
+  while (placed < ruins && tries++ < ruins * 6) {
+    const cx = c.x - reach + Math.floor(rand() * reach * 2)
+    const cz = c.z - reach + Math.floor(rand() * reach * 2)
+    if (!inGhost(cx, cz)) continue
     const s = world.surfaceAt(cx, cz)
     if (s <= CFG.SEA_LEVEL) continue
     const kind = rand()
@@ -69,8 +74,7 @@ export function buildGhost(world, STRUCT) {
   }
 
   STRUCT.ghostRuins = anchors
-  // 遗址中心广场留一处焦黑祭坛做地标
-  const c = POS.GHOST_C
+  // 遗址中心广场留一处焦黑祭坛做地标（复用顶部的 c=POS.GHOST_C）
   const cs = world.surfaceAt(c.x, c.z)
   fill(world, c.x - 2, cs + 1, c.z - 2, c.x + 2, cs + 1, c.z + 2, B.ASH_BRICK)
   world.setRaw(c.x, cs + 2, c.z, B.SCORCHED)

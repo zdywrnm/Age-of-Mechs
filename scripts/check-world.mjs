@@ -173,9 +173,9 @@ check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && ST
   check('鬼城废墟锚点已生成', STRUCT.ghostRuins && STRUCT.ghostRuins.length >= 15, `ruins=${STRUCT.ghostRuins?.length}`)
   check('鬼城中心焦黑祭坛', world.get(POS.GHOST_C.x, world.surfaceAt(POS.GHOST_C.x, POS.GHOST_C.z) + 2, POS.GHOST_C.z) === B.SCORCHED)
   check('鬼城中心判定', zoneAt(POS.GHOST_C.x, POS.GHOST_C.z)?.id === 'ghost')
-  // 废墟锚点确实在鬼城矩形内
-  const allIn = STRUCT.ghostRuins.every(([x, , z]) => x >= POS.GHOST_RECT.x0 && x <= POS.GHOST_RECT.x1 && z >= POS.GHOST_RECT.z0 && z <= POS.GHOST_RECT.z1)
-  check('废墟锚点都在鬼城范围内', allIn)
+  // 废墟锚点确实在鬼城有机区内
+  const allIn = STRUCT.ghostRuins.every(([x, , z]) => zoneAt(x, z)?.id === 'ghost')
+  check('废墟锚点都在鬼城区内', allIn, `count=${STRUCT.ghostRuins.length}`)
 }
 
 // —— v4 森林 + 神殿 ——

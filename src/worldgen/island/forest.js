@@ -3,8 +3,10 @@
 // 神殿二层：大型宝箱 → 唯一「红眼睛」远程武器
 import { CFG, POS } from '../../config.js'
 import { B } from '../../blocks.js'
-import { fill, flatten } from '../lib.js'
+import { fill, flatten, scatter } from '../lib.js'
 import { mulberry32 } from '../../noise.js'
+import { zoneAt, regionWeight } from '../../game/zones.js'
+import { flowerPatch, pond } from '../decor.js'
 
 function tree(world, x, z, trunkH, canopyR) {
   const g = world.surfaceAt(x, z)
@@ -22,20 +24,23 @@ function tree(world, x, z, trunkH, canopyR) {
 
 export function buildForest(world, STRUCT) {
   const rand = mulberry32(CFG.SEED + 606)
-  const r = POS.FOREST_RECT
+  const c = POS.FOREST_C
   const temple = POS.FOREST_TEMPLE
   const giant = POS.GIANT_TREE
+  const reach = 66
 
-  // —— 高密森林（避开神殿与巨树）——
-  for (let z = r.z0; z <= r.z1; z++) {
-    for (let x = r.x0; x <= r.x1; x++) {
-      const s = world.surfaceAt(x, z)
-      if (s <= CFG.SEA_LEVEL) continue
-      if (Math.hypot(x - temple.x, z - temple.z) < 12) continue
-      if (Math.hypot(x - giant.x, z - giant.z) < 8) continue
-      if (rand() < 0.06) tree(world, x, z, 4 + Math.floor(rand() * 4), 2 + Math.floor(rand() * 2))
-    }
-  }
+  // —— 高密森林（填满有机森林区，密度随 regionWeight）——
+  scatter(world, c.x - reach, c.z - reach, c.x + reach, c.z + reach, rand,
+    (x, z) => zoneAt(x, z)?.id === 'forest'
+      && world.surfaceAt(x, z) > CFG.SEA_LEVEL
+      && Math.hypot(x - temple.x, z - temple.z) >= 12
+      && Math.hypot(x - giant.x, z - giant.z) >= 8,
+    (x, z) => 0.09 * regionWeight(x, z, 'forest'),
+    (x, z) => tree(world, x, z, 4 + Math.floor(rand() * 4), 2 + Math.floor(rand() * 2)))
+  // 林间空地花丛 + 小池塘
+  flowerPatch(world, c.x - 22, c.z + 6, 5, rand)
+  flowerPatch(world, c.x + 20, c.z - 16, 5, rand)
+  pond(world, c.x + 8, c.z + 24, 4)
 
   // —— 巨型古树（约 35 格高，粗 3×3 干 + 巨大树冠）——
   buildGiantTree(world, giant)
