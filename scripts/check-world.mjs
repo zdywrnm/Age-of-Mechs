@@ -57,10 +57,11 @@ check('矿石密室宝箱存在', STRUCT.oreRoom && at(world, STRUCT.oreRoom.che
     const [ex, ez] = STRUCT.undercityElevator
     check('竖井底部有水缓冲', world.get(ex, uc.floorY + 6, ez) === B.WATER)
     check('竖井上部畅通', world.get(ex, uc.floorY + 40, ez) === B.AIR)
-    // 空腔硬约束：所有地下城坐标必须在 96..144
+    // 空腔硬约束：所有地下城坐标必须在居中空腔内（POS.UNDERCITY_CAVITY 派生）
+    const cav = POS.UNDERCITY_CAVITY, cvLo = { x: cav.cx - cav.half, z: cav.cz - cav.half }, cvHi = { x: cav.cx + cav.half, z: cav.cz + cav.half }
     for (const [label, x, z] of [['CORE', POS.CORE.x, POS.CORE.z], ['SHRINE3', POS.SHRINE3.x, POS.SHRINE3.z],
       ['LIGHT_CHEST', POS.LIGHT_CHEST.x, POS.LIGHT_CHEST.z], ['STAIR', POS.UNDERCITY_STAIR.x, POS.UNDERCITY_STAIR.z]]) {
-      check(`地下城坐标 ${label} 在空腔 96..144 内`, x >= 96 && x <= 144 && z >= 96 && z <= 144, `(${x},${z})`)
+      check(`地下城坐标 ${label} 在空腔内`, x >= cvLo.x && x <= cvHi.x && z >= cvLo.z && z <= cvHi.z, `(${x},${z})`)
     }
   }
 }
@@ -73,23 +74,25 @@ check('刷怪塔传送台金砖', STRUCT.teleporterPad && world.get(STRUCT.telep
 
 // —— v4 地形与迁移结构 ——
 check('巨石阵在西北高地（地面≥SURFACE+3）', STRUCT.hengeGround >= CFG.SURFACE + 3, `hengeGround=${STRUCT.hengeGround}`)
-check('巨石阵位于新址', STRUCT.earthRoom.planks[0][0] === 76 && STRUCT.earthRoom.planks[0][2] === 72)
-check('海峡有水（小岛与主岛隔开）', world.get(POS.STRAIT.x, CFG.SEA_LEVEL, POS.STRAIT.z) === B.WATER)
+check('巨石阵位于新址', STRUCT.earthRoom.planks[0][0] === POS.HENGE_C.x && STRUCT.earthRoom.planks[0][2] === POS.HENGE_C.z)
+// 取样点避开石桥（桥在 z=IC.z±1，桥墩会占列），往南偏 8 格看海峡水
+check('海峡有水（小岛与主岛隔开）', world.get(POS.STRAIT.x, CFG.SEA_LEVEL, POS.STRAIT.z + 8) === B.WATER, `strait=(${POS.STRAIT.x},${POS.STRAIT.z + 8}) block=${name(world.get(POS.STRAIT.x, CFG.SEA_LEVEL, POS.STRAIT.z + 8))}`)
 for (const [px, pz, ph] of POS.MOUNT_PEAKS) {
   check(`矿峰(${px},${pz})高度≥${ph - 8}`, world.surfaceAt(px, pz) >= ph - 8, `surface=${world.surfaceAt(px, pz)}`)
 }
-check('地狱门在东南海岸', Math.hypot(STRUCT.hellPortal.base[0] - 196, STRUCT.hellPortal.base[2] - 196) < 2,
+check('地狱门在东南海岸', Math.hypot(STRUCT.hellPortal.base[0] - POS.PORTAL_HELL.x, STRUCT.hellPortal.base[2] - POS.PORTAL_HELL.z) < 2,
   `base=${STRUCT.hellPortal.base}`)
 check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && STRUCT.teleporterPad[2] === POS.SPAWNER_C.z)
-// 石桥连通性：z=128 中线从小岛平台走到主岛竹林西岸，逐格可走（落脚实心+头顶2格空+高差≤1）
+// 石桥连通性：中线（z=IC.z）从小岛平台走到主岛西岸，逐格可走（落脚实心+头顶2格空+高差≤1）
 {
   let ok = true, detail = '', prevY = null
+  const midZ = CFG.ISLAND_CZ
   for (let x = POS.SPAWNER_C.x + 8; x <= POS.BRIDGE.x1 + 2; x++) {
     let y = -1
-    for (let yy = 115; yy >= 95; yy--) if (world.isSolid(x, yy, 128)) { y = yy; break }
+    for (let yy = 120; yy >= 90; yy--) if (world.isSolid(x, yy, midZ)) { y = yy; break }
     if (y < 0) { ok = false; detail = `x=${x} 无落脚`; break }
-    if (world.get(x, y + 1, 128) !== B.AIR || world.get(x, y + 2, 128) !== B.AIR) {
-      ok = false; detail = `x=${x} y=${y} 头顶不通(${world.get(x, y + 1, 128)},${world.get(x, y + 2, 128)})`; break
+    if (world.get(x, y + 1, midZ) !== B.AIR || world.get(x, y + 2, midZ) !== B.AIR) {
+      ok = false; detail = `x=${x} y=${y} 头顶不通(${world.get(x, y + 1, midZ)},${world.get(x, y + 2, midZ)})`; break
     }
     if (prevY !== null && Math.abs(y - prevY) > 1) { ok = false; detail = `x=${x} 落差 ${prevY}→${y}`; break }
     prevY = y
@@ -113,25 +116,28 @@ check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && ST
     }
     check('仓库福利箱存在', town.wareChest && at(world, town.wareChest) === B.CHEST)
   }
-  // 城墙四边采样
-  check('北城墙', world.get(110, 114, 96) === B.BRICK)
-  check('南城墙', world.get(110, 114, 160) === B.BRICK)
-  check('西城墙', world.get(96, 114, 110) === B.BRICK)
-  check('东城墙', world.get(160, 114, 110) === B.BRICK)
+  // 城墙四边采样（POS.CITY 派生；取样点偏离门中心 14 格，避开 5 宽门洞）
+  const cy = CFG.SURFACE + 2, cc = POS.CITY, cwx = cc.x0 + 14, cwz = cc.z0 + 14
+  check('北城墙', world.get(cwx, cy, cc.z0) === B.BRICK, `(${cwx},${cy},${cc.z0})=${name(world.get(cwx, cy, cc.z0))}`)
+  check('南城墙', world.get(cwx, cy, cc.z1) === B.BRICK, `(${cwx},${cy},${cc.z1})=${name(world.get(cwx, cy, cc.z1))}`)
+  check('西城墙', world.get(cc.x0, cy, cwz) === B.BRICK, `(${cc.x0},${cy},${cwz})=${name(world.get(cc.x0, cy, cwz))}`)
+  check('东城墙', world.get(cc.x1, cy, cwz) === B.BRICK, `(${cc.x1},${cy},${cwz})=${name(world.get(cc.x1, cy, cwz))}`)
   // 四门开洞（中心 2 格高空气）
   for (const [gx, gz] of POS.CITY_GATES) {
     check(`城门(${gx},${gz})通行`, world.get(gx, 113, gz) === B.AIR && world.get(gx, 114, gz) === B.AIR)
   }
-  // 南门→塔前广场大道：铺砖 + 地面可走
+  // 南门→塔前广场大道：铺砖 + 地面可走（IC 派生，南门 IC.z+CITY_HALF 内一格到塔前）
   {
     let ok = true, detail = ''
-    for (let z = 159; z >= 137; z--) {
-      if (world.get(128, 112, z) !== B.BRICK) { ok = false; detail = `z=${z} 非砖`; break }
-      if (world.get(128, 113, z) !== B.AIR || world.get(128, 114, z) !== B.AIR) { ok = false; detail = `z=${z} 不通`; break }
+    const ax = CFG.ISLAND_CX, gz = cc.z1, g = CFG.SURFACE
+    for (let z = gz - 1; z >= CFG.ISLAND_CZ + 9; z--) {
+      if (world.get(ax, g, z) !== B.BRICK) { ok = false; detail = `z=${z} 非砖`; break }
+      if (world.get(ax, g + 1, z) !== B.AIR || world.get(ax, g + 2, z) !== B.AIR) { ok = false; detail = `z=${z} 不通`; break }
     }
     check('南门→塔前大道铺砖可走', ok, detail)
   }
-  check('出生点站在砖路上', world.get(128, 112, 152) === B.BRICK)
+  const [spx, , spz] = STRUCT.spawnPoint
+  check('出生点站在砖路上', world.get(Math.floor(spx), CFG.SURFACE, Math.floor(spz)) === B.BRICK, `spawn=(${spx.toFixed(1)},${spz.toFixed(1)})`)
 }
 
 // —— v4 竹林 + 神殿 ——

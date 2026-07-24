@@ -181,6 +181,43 @@ export class ChunkManager {
     }
   }
 
+  // v5 流式：只建 (px,pz) 半径内未建 chunk（分帧迭代，供 boot 进度条）——大世界只建岛屿+玩家附近
+  *buildNearIterator(px, pz, radius) {
+    const C = CFG.CHUNK
+    const pcx = Math.floor(px / C), pcz = Math.floor(pz / C)
+    const r = Math.ceil(radius / C)
+    for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dz * dz > r * r) continue
+      const cx = pcx + dx, cz = pcz + dz
+      if (cx < 0 || cz < 0 || cx >= this.world.chunksX || cz >= this.world.chunksZ) continue
+      if (this.meshes.has(`${cx},${cz}`)) continue
+      this.buildChunk(cx, cz)
+      yield
+    }
+  }
+
+  nearCount(radius) { const r = Math.ceil(radius / CFG.CHUNK); return Math.ceil(Math.PI * r * r) }
+
+  // v5 流式：每帧由近及远补建玩家附近未建 chunk（budget 限流，航海/漫游时按需加载）
+  streamAround(px, pz, radius, budget = 3) {
+    const C = CFG.CHUNK
+    const pcx = Math.floor(px / C), pcz = Math.floor(pz / C)
+    const r = Math.ceil(radius / C)
+    for (let ring = 0; ring <= r && budget > 0; ring++) {
+      for (let dz = -ring; dz <= ring && budget > 0; dz++) {
+        for (let dx = -ring; dx <= ring; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dz)) !== ring) continue   // 只走当前环
+          if (dx * dx + dz * dz > r * r) continue
+          const cx = pcx + dx, cz = pcz + dz
+          if (cx < 0 || cz < 0 || cx >= this.world.chunksX || cz >= this.world.chunksZ) continue
+          if (this.meshes.has(`${cx},${cz}`)) continue
+          this.buildChunk(cx, cz)
+          if (--budget <= 0) break
+        }
+      }
+    }
+  }
+
   totalChunks() { return this.world.chunksX * this.world.chunksZ }
 
   update() {

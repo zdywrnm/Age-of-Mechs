@@ -108,9 +108,11 @@ async function boot(newConfig) {
   loading.set(0.05, '正在创造大陆与海洋……')
   await tick()
   const d = dims.get('main')
-  const iter = dims.ensure('main', { incremental: true })
+  // v5 流式：只建岛心周围（RENDER_DIST+一圈）的 chunk，远洋随玩家漫游按需补建
+  const loadRadius = CFG.RENDER_DIST + CFG.CHUNK * 2
+  const iter = dims.ensure('main', { incremental: true, center: { x: CFG.ISLAND_CX, z: CFG.ISLAND_CZ }, radius: loadRadius })
   if (save?.edits?.main) d.world.applyEdits(save.edits.main)
-  const total = d.chunks.totalChunks()
+  const total = d.chunks.nearCount(loadRadius)
   let i = 0
   for (const _ of iter) {
     i++
@@ -1207,6 +1209,8 @@ function startGame(robotConfig, save) {
     }
 
     ctx.chunks && ctx.chunks.update()
+    // v5 流式：主世界随玩家漫游按需补建附近未建 chunk（大世界不一次建满）
+    if (ctx.chunks && dims.active === 'main') ctx.chunks.streamAround(player.ent.pos.x, player.ent.pos.z, CFG.RENDER_DIST + CFG.CHUNK * 2, 4)
     ctx.chunks && ctx.chunks.updateVisibility(camera.position.x, camera.position.z, CFG.RENDER_DIST)
     controls.updateCamera(camera, ctx.world, player.headPos())
     fx.applyShake(camera)

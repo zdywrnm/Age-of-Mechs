@@ -30,7 +30,8 @@ export class DimensionManager {
   activeDim() { return this.dims.get(this.active) }
 
   // 生成（懒）：gen(world) 返回可选的 lights 数组
-  ensure(id, { incremental = false } = {}) {
+  // v5：main 维度用 center+radius 只建玩家附近（大世界流式），其余小维度同步全建
+  ensure(id, { incremental = false, center = null, radius = 0 } = {}) {
     const d = this.dims.get(id)
     if (d.generated) return null
     const lights = d.gen(d.world) || []
@@ -42,7 +43,9 @@ export class DimensionManager {
       d.group.add(light)
       d.lightObjs.push(light)
     }
-    if (incremental) return d.chunks.buildAllIterator()  // 交给调用方分帧
+    if (incremental) {
+      return center ? d.chunks.buildNearIterator(center.x, center.z, radius) : d.chunks.buildAllIterator()
+    }
     for (const _ of d.chunks.buildAllIterator()) { /* 同步构建（小维度） */ }
     d.world.dirty.clear()
     return null

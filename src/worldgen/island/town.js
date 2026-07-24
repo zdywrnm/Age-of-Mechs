@@ -4,9 +4,11 @@ import { CFG, POS } from '../../config.js'
 import { B } from '../../blocks.js'
 import { fill, flatten } from '../lib.js'
 
-// 22 座房屋（12住宅/4商铺/2工坊/1旅店/1仓库/2守卫屋），坐标全部手工核对：
-// 避开十字大道(126..130)、塔区(119..137)、集市广场(104..122×108..124)、城墙(96/160)
-const HOUSES = [
+// v5：城内坐标原按旧城心 128 手工核对，整体位移到新城心 IC（DX/DZ = IC-128）
+// （C8 会把这里改成程序化布局并扩大到 ~40 座；此段只搬家不改形状）
+const DX = CFG.ISLAND_CX - 128, DZ = CFG.ISLAND_CZ - 128
+// 22 座房屋（12住宅/4商铺/2工坊/1旅店/1仓库/2守卫屋）
+const HOUSES = ([
   // 西北象限
   { x: 99,  z: 99,  w: 8,  d: 6, type: 'home',  door: 'S' },
   { x: 109, z: 99,  w: 8,  d: 6, type: 'home',  door: 'S' },
@@ -33,11 +35,11 @@ const HOUSES = [
   { x: 133, z: 152, w: 8,  d: 6, type: 'home',  door: 'N' },
   { x: 143, z: 152, w: 8,  d: 6, type: 'home',  door: 'N' },
   { x: 152, z: 152, w: 6,  d: 6, type: 'home',  door: 'N' },
-]
+]).map(h => ({ ...h, x: h.x + DX, z: h.z + DZ }))
 
 // 市集摊位（广场边 + 南大道两侧）
 const STALLS = [[105, 110], [113, 110], [120, 110], [105, 122], [120, 122], [113, 122],
-  [124, 140], [124, 148], [132, 140], [132, 148]]
+  [124, 140], [124, 148], [132, 140], [132, 148]].map(([x, z]) => [x + DX, z + DZ])
 
 // 居民漫步范围（只在大道/广场上，避开塔区和建筑——小人不穿墙）
 const RESIDENT_PATCHES = [
@@ -46,7 +48,7 @@ const RESIDENT_PATCHES = [
   [139, 126, 157, 130],   // 东大道
   [99, 126, 117, 130],    // 西大道
   [105, 109, 118, 123],   // 集市广场
-]
+].map(([a, b, c, d]) => [a + DX, b + DZ, c + DX, d + DZ])
 
 export function buildTown(world, STRUCT) {
   const { x0, z0, x1, z1 } = POS.CITY
@@ -94,10 +96,11 @@ export function buildTown(world, STRUCT) {
     }
   }
 
-  // —— 十字大道（5 宽，四门通塔）+ 集市广场 ——
-  for (let z = z0 + 1; z <= z1 - 1; z++) for (let x = 126; x <= 130; x++) world.setRaw(x, g, z, B.BRICK)
-  for (let x = x0 + 1; x <= x1 - 1; x++) for (let z = 126; z <= 130; z++) world.setRaw(x, g, z, B.BRICK)
-  for (let x = 104; x <= 122; x++) for (let z = 108; z <= 124; z++) world.setRaw(x, g, z, B.BRICK)
+  // —— 十字大道（5 宽，四门通塔，以城心 IC 为轴）+ 集市广场 ——
+  const cxA = CFG.ISLAND_CX, czA = CFG.ISLAND_CZ
+  for (let z = z0 + 1; z <= z1 - 1; z++) for (let x = cxA - 2; x <= cxA + 2; x++) world.setRaw(x, g, z, B.BRICK)
+  for (let x = x0 + 1; x <= x1 - 1; x++) for (let z = czA - 2; z <= czA + 2; z++) world.setRaw(x, g, z, B.BRICK)
+  for (let x = cxA - 24; x <= cxA - 6; x++) for (let z = czA - 20; z <= czA - 4; z++) world.setRaw(x, g, z, B.BRICK)
 
   // —— 22 座房屋 ——
   const houses = []
@@ -112,7 +115,7 @@ export function buildTown(world, STRUCT) {
   }
 
   // —— 广场与大道灯 ——
-  STRUCT.lights.push([113, g + 5, 116], [128, g + 4, 146], [128, g + 4, 110])
+  STRUCT.lights.push([cxA - 15, g + 5, czA - 12], [cxA, g + 4, czA + 18], [cxA, g + 4, czA - 18])
 
   STRUCT.town = {
     houses,

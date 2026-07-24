@@ -1,3 +1,8 @@
+// 初始岛心（唯一真源）——未来挪岛/加新岛只改这一个基准点，所有初始岛坐标 isl() 派生
+export const IC = { x: 320, z: 320 }
+const CITY_HALF = 32                 // 城墙半宽（C8 会扩大到 48）
+const isl = (dx, dz, e = {}) => ({ x: IC.x + dx, z: IC.z + dz, ...e })
+
 // 全局常量配置 —— 所有可调数值集中在这里
 export const CFG = {
   // 主世界尺寸（v5：1024² 大世界，为大幅扩大的初始岛 + 未来更多大岛留余地）
@@ -7,15 +12,15 @@ export const CFG = {
   SEED: 20260722,
   SURFACE: 112,                   // 初始城镇岛地表高度
   SEA_LEVEL: 101,                 // 海面高度（真实水体）
-  ISLAND_CX: 128, ISLAND_CZ: 128, // 初始城镇岛心
-  ISLAND_R_FULL: 116,             // v4.1 再扩岛：城市不动，六区外推，城墙与六区间留平原郊区
-  ISLAND_R_EDGE: 132,
+  ISLAND_CX: IC.x, ISLAND_CZ: IC.z, // 初始城镇岛心（= IC）
+  ISLAND_R_FULL: 210,             // v5：大幅扩岛（满高陆地半径，岛盘 [80,560]）
+  ISLAND_R_EDGE: 240,
 
-  // 渲染
-  FOG_NEAR: 120, FOG_FAR: 230,
-  RENDER_DIST: 176,             // chunk 显隐距离（配合雾遮住边界）
+  // 渲染（v5 大岛：陆地更密，收一点渲染距离控 draw call，雾遮边界）
+  FOG_NEAR: 96, FOG_FAR: 176,
+  RENDER_DIST: 136,             // chunk 显隐距离（配合雾遮住边界）
   SKY_COLOR: 0x87c9f0,
-  MESH_BUDGET_PER_FRAME: 2,
+  MESH_BUDGET_PER_FRAME: 3,
   LOAD_CHUNKS_PER_FRAME: 8,
 
   // 玩家物理
@@ -104,61 +109,62 @@ export const DIMS = {
 }
 
 // 关键坐标（结构生成与任务共同引用）
-// v3 布局：初始城镇整体平移到 (128,128)，各大陆两两之间 120+ 格开阔海面
+// v5 布局：初始岛全部相对岛心 IC 派生（isl(dx,dz)），远海地标等比外扩
 export const POS = {
-  // —— 初始城镇岛（第一章结构随岛心整体平移 +48,+48）——
-  TOWER_C: { x: 128, z: 128 },
-  SPAWN: { x: 128.5, z: 152.5 },   // v4：城南大道出生点
-  THRONE: { x: 128, z: 128 },
-  GOLD_TILE: { x: 128, z: 130 },
-  NPC: { x: 125.5, z: 128.5 },
-  HENGE_C: { x: 76, z: 72 },      // v4：巨石阵迁到西北高地
-  SPAWNER_C: { x: 16, z: 128 },   // v4：刷怪塔迁到西侧近海小岛（= SPAWNER_ISLE 中心）
+  // —— 初始城镇岛（全部 IC 派生）——
+  TOWER_C: isl(0, 0),
+  SPAWN: isl(0.5, 24),            // 城南大道出生点
+  THRONE: isl(0, 0),
+  GOLD_TILE: isl(0, 2),
+  NPC: isl(-2.5, 0.5),
+  HENGE_C: isl(-96, -96),         // 巨石阵：西北高地
+  SPAWNER_C: isl(-256, 0),        // 刷怪塔小岛中心（= SPAWNER_ISLE）
   ORE_ROOM_DEPTH: 100,
   EARTH_PLANK_DEPTH: 100,
 
-  // —— 第二章主世界 ——
-  PORTAL_HELL: { x: 196, z: 196 },         // 暗黑地狱传送门（v4：东南海岸沙滩）
-  AUTHOR_ISLE: { x: 96, z: 392, r: 26 },   // 作者小岛（城镇以南远海）
-  HUT: { x: 96, z: 392 },                  // 木屋神殿②（商店）
-  TAME_LAND: { x: 396, z: 200, rx: 80, rz: 78 }, // 收服大陆（东方远陆）
-  JUNGLE_TEMPLE: { x: 396, z: 200 },       // 丛林神殿（终极之地传送门）
-  DEEP_SEA: { x: 312, z: 424, r: 60 },     // 深海盆地（东南远洋）
-  SEA_PALACE: { x: 312, z: 424 },          // 海底宫殿（潮涌 boss）
-  KUNPENG_AIR: { x: 312, y: 150, z: 424 }, // 鲲鹏空域
-  FORBIDDEN: { x: 104, z: 480 },           // 禁地中心（作者小岛再往南——设定原文）
-  FORBIDDEN_CHEST: { x: 118, z: 486 },     // 神秘齿轮宝箱（禁地周围、巡逻圈外）
-  // —— v4.0 初始岛六区重建 ——
-  // ①中央城市（城墙外皮矩形，罩住地下城空腔 96..144）
-  CITY: { x0: 96, z0: 96, x1: 160, z1: 160 },
-  CITY_GATES: [[128, 96], [128, 160], [96, 128], [160, 128]],  // 北/南/西/东四门中心
-  // ②竹林（西）—— 西侧被刷怪塔小岛+海峡占死，无法外推（否则侵入海峡水域），保持原位；西门直接接竹林作自然过渡
-  BAMBOO_C: { x: 68, z: 130, r: 26 },
-  BAMBOO_TEMPLE: { x: 58, z: 144 },        // 三层竹林神殿
-  BAMBOO_CHEST: { x: 80, z: 110 },         // 隐藏图腾宝箱（竹林深处）
-  // ④矿石群山（北）—— 北推 14 格，北门外留郊区
-  MOUNT_C: { x: 132, z: 46 },
-  MOUNT_RECT: { x0: 84, z0: 18, x1: 176, z1: 78 },
-  MOUNT_PEAKS: [[104, 38, 138, 22], [132, 30, 142, 26], [160, 42, 136, 20], [96, 70, 126, 10], [172, 62, 132, 18]],  // 五座主峰 [x, z, 峰顶高, 半径]
-  // ⑤鬼城遗址（东）—— 东推 14 格
-  GHOST_RECT: { x0: 178, z0: 98, x1: 228, z1: 166 },
-  GHOST_C: { x: 204, z: 130 },
-  // ⑥森林（南）—— 南推 14 格
-  FOREST_RECT: { x0: 96, z0: 178, x1: 172, z1: 228 },
-  FOREST_C: { x: 132, z: 204 },
-  GIANT_TREE: { x: 146, z: 210 },          // 巨型古树
-  FOREST_TEMPLE: { x: 114, z: 210 },       // 两层森林神殿
-  // 刷怪塔独立小岛（西侧近海）+ 海峡 + 石桥
-  SPAWNER_ISLE: { x: 16, z: 128, r: 10 },
-  STRAIT: { x: 30, z: 128, rx: 13, rz: 26 },   // 西侧海峡（把小岛和主岛隔开）
-  BRIDGE: { x0: 22, x1: 40, z0: 127, z1: 129 }, // 石桥（小岛东缘→竹林西岸）
+  // —— 第二章远海地标（等比外扩，保留相对布局）——
+  PORTAL_HELL: isl(150, 150),                    // 东南海岸 (470,470)
+  AUTHOR_ISLE: isl(-40, 360, { r: 30 }),         // 作者小岛 (280,680)
+  HUT: isl(-40, 360),                            // 木屋神殿②
+  TAME_LAND: isl(380, 90, { rx: 90, rz: 86 }),   // 收服大陆 (700,410)
+  JUNGLE_TEMPLE: isl(380, 90),                   // 丛林神殿
+  DEEP_SEA: isl(250, 400, { r: 70 }),            // 深海盆地 (570,720)
+  SEA_PALACE: isl(250, 400),                     // 海底宫殿
+  KUNPENG_AIR: { x: IC.x + 250, y: 150, z: IC.z + 400 }, // 鲲鹏空域 (570,150,720)
+  FORBIDDEN: isl(-30, 470),                      // 禁地中心 (290,790)
+  FORBIDDEN_CHEST: isl(-16, 476),                // 神秘齿轮宝箱 (304,796)
 
-  // 地下之城空腔在 x/z=96..144（城镇正下方）——以下坐标必须落在此范围内
-  UNDERCITY: { x: 120, y: 18, z: 120 },    // 地下之城地板（空腔中心）
-  CORE: { x: 120, z: 120 },                // 驱动核心（城中心）
-  SHRINE3: { x: 132, z: 120 },             // 作者神殿③（核心东侧）
-  LIGHT_CHEST: { x: 124, z: 116 },         // 光明齿轮箱（驱动核心边缘）
-  UNDERCITY_STAIR: { x: 112, z: 116 },     // 地面→地下之城竖井入口（城腔西北、避开核心/大道）
+  // ①中央城市（城墙 IC±CITY_HALF，罩住地下城居中空腔）
+  CITY: { x0: IC.x - CITY_HALF, z0: IC.z - CITY_HALF, x1: IC.x + CITY_HALF, z1: IC.z + CITY_HALF },
+  CITY_GATES: [[IC.x, IC.z - CITY_HALF], [IC.x, IC.z + CITY_HALF], [IC.x - CITY_HALF, IC.z], [IC.x + CITY_HALF, IC.z]], // 北/南/西/东
+  // ②竹林（西）
+  BAMBOO_C: isl(-120, 6, { r: 26 }),             // (200,326)
+  BAMBOO_TEMPLE: isl(-130, 20),                  // (190,340)
+  BAMBOO_CHEST: isl(-108, -14),                  // (212,306)
+  // ④矿石群山（北）
+  MOUNT_C: isl(0, -155),                          // (320,165)
+  MOUNT_RECT: { x0: IC.x - 46, z0: IC.z - 185, x1: IC.x + 46, z1: IC.z - 125 }, // 274..366 × 135..195
+  MOUNT_PEAKS: [[290, 150, 152, 26], [330, 140, 158, 30], [360, 162, 150, 24], [296, 186, 145, 20], [352, 190, 148, 22]], // [x,z,峰顶高,半径]
+  // ⑤鬼城遗址（东）
+  GHOST_RECT: { x0: IC.x + 127, z0: IC.z - 28, x1: IC.x + 177, z1: IC.z + 40 }, // 447..497 × 292..360
+  GHOST_C: isl(152, 6),                           // (472,326)
+  // ⑥森林（南）
+  FOREST_RECT: { x0: IC.x - 38, z0: IC.z + 125, x1: IC.x + 38, z1: IC.z + 175 }, // 282..358 × 445..495
+  FOREST_C: isl(0, 150),                          // (320,470)
+  GIANT_TREE: isl(14, 156),                       // (334,476)
+  FOREST_TEMPLE: isl(-18, 156),                   // (302,476)
+  // 刷怪塔独立小岛（西侧近海）+ 海峡 + 石桥
+  SPAWNER_ISLE: isl(-256, 0, { r: 16 }),          // (64,320)
+  STRAIT: { x: IC.x - 232, z: IC.z, rx: 14, rz: 36 }, // (88,320) 西侧海峡
+  BRIDGE: { x0: IC.x - 248, x1: IC.x - 200, z0: IC.z - 1, z1: IC.z + 1 }, // 72..120 × 319..321 石桥（早起覆盖小岛下坡）
+
+  // 地下之城（居中于岛心，消灭 v4 偏心腔历史坑）
+  UNDERCITY_CAVITY: { cx: IC.x, cz: IC.z, half: 40, floorY: 18 }, // 空腔 280..360
+  UNDERCITY: { x: IC.x, y: 18, z: IC.z },         // 地下之城地板（腔心=岛心=城心）
+  CORE: isl(0, 0),                                // 驱动核心
+  SHRINE3: isl(12, 0),                            // 作者神殿③
+  LIGHT_CHEST: isl(4, -4),                        // 光明齿轮箱
+  UNDERCITY_STAIR: isl(-8, -4),                   // 地面→地下城竖井入口（城内广场）
 
   // —— 暗黑地狱 ——
   HELL_SPAWN: { x: 30, z: 96 },            // 地狱入口平台

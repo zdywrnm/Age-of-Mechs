@@ -56,7 +56,7 @@ export function generateTerrain(world) {
       }
 
       // 禁地岛链（世界南界，焦黑）
-      for (const [fx, fz, fr] of [[POS.FORBIDDEN.x, POS.FORBIDDEN.z, 22], [74, 462, 9], [136, 470, 10]]) {
+      for (const [fx, fz, fr] of [[POS.FORBIDDEN.x, POS.FORBIDDEN.z, 22], [CFG.ISLAND_CX - 54, CFG.ISLAND_CZ + 334, 9], [CFG.ISLAND_CX + 8, CFG.ISLAND_CZ + 342, 10]]) {
         const dF = Math.hypot(x - fx, z - fz)
         if (dF <= fr) {
           const s = dF <= fr - 5 ? 0 : smooth((dF - (fr - 5)) / 5)

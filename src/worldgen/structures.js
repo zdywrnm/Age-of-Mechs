@@ -315,22 +315,24 @@ function buildForbidden(world) {
 
 // 地下之城：像地核一样的大空腔——地下族人、驱动核心、作者神殿③、光明齿轮
 function buildUndercity(world) {
-  const floorY = POS.UNDERCITY.y            // 18
-  const x0 = 96, x1 = 144, z0 = 96, z1 = 144
+  const cav = POS.UNDERCITY_CAVITY          // { cx, cz, half:40, floorY:18 } 居中于岛心
+  const floorY = cav.floorY
+  const cx0 = cav.cx, cz0 = cav.cz          // 腔心 = 岛心 = 城心
+  const x0 = cx0 - cav.half, x1 = cx0 + cav.half, z0 = cz0 - cav.half, z1 = cz0 + cav.half
   // 大空腔（外壳石头，内部挖空，高 22）
   fill(world, x0 - 1, floorY - 2, z0 - 1, x1 + 1, floorY + 22, z1 + 1, B.STONE)
   fill(world, x0, floorY, z0, x1, floorY + 21, z1, B.AIR)
   // 地板：石砖大道 + 泥土
   fill(world, x0, floorY - 1, z0, x1, floorY - 1, z1, B.MUD)
-  fill(world, x0, floorY - 1, 118, x1, floorY - 1, 122, B.BRICK)   // 东西大道
-  fill(world, 118, floorY - 1, z0, 122, floorY - 1, z1, B.BRICK)   // 南北大道
-  // 荧光石顶灯柱
-  for (const [lx, lz] of [[104, 104], [136, 104], [104, 136], [136, 136], [120, 108], [120, 132]]) {
-    fill(world, lx, floorY, lz, lx, floorY + 6, lz, B.GLOWSTONE)
+  fill(world, x0, floorY - 1, cz0 - 2, x1, floorY - 1, cz0 + 2, B.BRICK)   // 东西大道
+  fill(world, cx0 - 2, floorY - 1, z0, cx0 + 2, floorY - 1, z1, B.BRICK)   // 南北大道
+  // 荧光石顶灯柱（腔心对称）
+  for (const [ox, oz] of [[-16, -16], [16, -16], [-16, 16], [16, 16], [0, -12], [0, 12]]) {
+    fill(world, cx0 + ox, floorY, cz0 + oz, cx0 + ox, floorY + 6, cz0 + oz, B.GLOWSTONE)
   }
-  // 地下族人的小屋 ×6（石砖小盒）
+  // 地下族人的小屋 ×6（石砖小盒，腔心对称）
   const folk = []
-  for (const [hx, hz] of [[102, 112], [102, 128], [138, 112], [138, 128], [112, 138], [128, 138]]) {
+  for (const [hx, hz] of [[cx0 - 18, cz0 - 8], [cx0 - 18, cz0 + 8], [cx0 + 18, cz0 - 8], [cx0 + 18, cz0 + 8], [cx0 - 8, cz0 + 18], [cx0 + 8, cz0 + 18]]) {
     fill(world, hx - 2, floorY, hz - 2, hx + 2, floorY + 3, hz + 2, B.BRICK)
     fill(world, hx - 1, floorY, hz - 1, hx + 1, floorY + 2, hz + 1, B.AIR)
     world.setRaw(hx, floorY, hz - 2, B.AIR); world.setRaw(hx, floorY + 1, hz - 2, B.AIR)
