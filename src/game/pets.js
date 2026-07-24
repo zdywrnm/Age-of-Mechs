@@ -166,7 +166,7 @@ export class PetManager {
     moveEntity(this.ctx.world, e.ent, dt)
     if (e.ent.pos.y < -5) { e.ent.pos.x = p.ent.pos.x; e.ent.pos.y = p.ent.pos.y + 1; e.ent.pos.z = p.ent.pos.z }
     e.group.position.set(e.ent.pos.x, e.ent.pos.y, e.ent.pos.z)
-    if (tx || tz) e.group.rotation.y = Math.atan2(-tx, -tz) + Math.PI
+    if (tx || tz) e.group.rotation.y = Math.atan2(-tx, -tz)   // 模型面朝 -Z，脸朝移动方向（与怪物一致，删旧 +π 反转）
   }
 
   serialize() { return { roster: this.roster, activeIndex: this.activeIndex } }
