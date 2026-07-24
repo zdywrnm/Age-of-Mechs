@@ -7,6 +7,7 @@ import { buildBamboo } from './bamboo.js'
 import { buildMountains } from './mountains.js'
 import { buildGhost } from './ghost.js'
 import { buildForest } from './forest.js'
+import { buildOutskirts } from './outskirts.js'
 
 export function buildIsland(world, STRUCT) {
   buildTown(world, STRUCT)      // 城市先建（整城拍平；作者之塔随后在中心以同高度重拍）
@@ -16,4 +17,5 @@ export function buildIsland(world, STRUCT) {
   buildMountains(world, STRUCT)
   buildGhost(world, STRUCT)
   buildForest(world, STRUCT)
+  buildOutskirts(world, STRUCT) // v4.1 郊区（最后建：铺在城墙外六区间的平原上）
 }

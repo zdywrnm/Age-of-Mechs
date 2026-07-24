@@ -6,13 +6,32 @@ import { CFG } from '../config.js'
 export const SLOT_COUNT = 4
 const slotKey = n => `aom_slot${n}`
 
-const ISLAND_REV = 2   // v4 初始岛世界修订号（六区重建）
+const ISLAND_REV = 3   // v4.1 初始岛修订号（扩岛 + 北/东/南三区外推 + 平原郊区）
+
+// 岛屿重建区判定：主岛柱体(含海滩)+ 刷怪塔小岛盒
+// v4.1 扩岛：半径 118→140（覆盖新 ISLAND_R_EDGE 132 + 海滩缓冲）
+const inRebuild = (x, z) =>
+  Math.hypot(x - CFG.ISLAND_CX, z - CFG.ISLAND_CZ) <= 140 ||
+  (x <= 40 && z >= 108 && z <= 148)
+
+// 岛屿修订升级：清掉落在（新）重建区内的旧方块编辑/位置/船，并盖上当前 rev
+// 每次岛布局变动（六区移位/扩岛）只需 bump ISLAND_REV，老档载入时自动校正
+function reconcileIsland(d) {
+  if (d.edits?.main) d.edits.main = d.edits.main.filter(([x, , z]) => !inRebuild(x, z))   // 全 y 过滤（含地下城）
+  if (d.player?.pos && inRebuild(d.player.pos[0], d.player.pos[2])) d.player.pos = null    // 落在重建区→回出生点
+  d.boats = (d.boats || []).filter(b => {
+    const x = b.x ?? (Array.isArray(b) ? b[0] : 0)
+    const z = b.z ?? (Array.isArray(b) ? b[2] : 0)
+    return !inRebuild(x, z)
+  })
+  d.islandRev = ISLAND_REV
+  return d
+}
 
 // v3 → v4 迁移：补新字段 + 过滤新主岛立柱范围内的旧方块编辑（含地下城）
 export function migrateV3toV4(d) {
   if (!d || d.version >= 4) return d
   d.version = 4
-  d.islandRev = ISLAND_REV
   // 装备补 artifact/ranged 空槽（旧 JSON 导入也可用）
   d.player = d.player || {}
   d.player.equipment = Object.assign({ sword: null, armor: null, wings: null, artifact: null, ranged: null }, d.player.equipment)
@@ -20,20 +39,7 @@ export function migrateV3toV4(d) {
   d.flags = Object.assign({ ancientPandaDefeated: false, ghostDragonDefeated: false }, d.flags)
   // 宝箱 id 前缀化（chests.deserialize 已兼容，这里统一重写）
   d.chests = (d.chests || []).map(k => (k.includes(':') || k.includes(',')) ? k : 'gear:' + k)
-  // 只清除「新主岛立柱范围」内的旧方块编辑——主岛柱体(含海滩)+ 刷怪塔小岛盒
-  const inRebuild = (x, z) =>
-    Math.hypot(x - CFG.ISLAND_CX, z - CFG.ISLAND_CZ) <= 118 ||
-    (x <= 40 && z >= 108 && z <= 148)
-  if (d.edits?.main) d.edits.main = d.edits.main.filter(([x, , z]) => !inRebuild(x, z))   // 全 y 过滤（含地下城）
-  // 旧位置若落在重建区 → 置 null，main.js 现有兜底自动回城南出生点
-  if (d.player.pos && inRebuild(d.player.pos[0], d.player.pos[2])) d.player.pos = null
-  // 重建区内会被陆地/建筑吞没的旧船移除，其他船保留
-  d.boats = (d.boats || []).filter(b => {
-    const x = b.x ?? (Array.isArray(b) ? b[0] : 0)
-    const z = b.z ?? (Array.isArray(b) ? b[2] : 0)
-    return !inRebuild(x, z)
-  })
-  return d
+  return reconcileIsland(d)
 }
 
 export function currentSlot() {
@@ -124,6 +130,8 @@ export function loadGame() {
     let data = JSON.parse(raw)
     if (data.version === 3) { data = migrateV3toV4(data); data.migratedFromV1 = true }   // 旧档提示
     if (data.version !== 4) return null
+    // 岛布局修订升级（老 v4 档 islandRev<3 → 校正落在新重建区的旧编辑，防穿模）
+    if ((data.islandRev || 0) < ISLAND_REV) { reconcileIsland(data); data.islandRev = ISLAND_REV }
     return data
   } catch (e) {
     console.warn('读档失败', e)

@@ -261,6 +261,35 @@ function startGame(robotConfig, save) {
     })
   }
 
+  // —— v4.1 郊区居民：城墙外、六区内的平原上零散漫步的村民 ——
+  const OUTSKIRT_NAMES = ['老农夫', '采蘑菇的', '牧羊人', '赶路人', '挖矿工', '钓鱼佬', '樵夫', '游商']
+  const OUTSKIRT_LINES = [
+    ['这片郊区是城外的菜园子，我天天在这儿忙活。', '城墙里头绝对安全，可别往六区深处乱跑呀。'],
+    ['出了城就是野地啦，白天还好，晚上得当心。', '我这就收工回城喽~'],
+    ['我常去北边山里捡矿石，运气好能挖到宝石！', '你要去的话，跟紧大路别迷路。'],
+    ['听说城东鬼城闹鬼，我可不敢靠近。', '在这郊区放放羊、晒晒太阳最舒坦。'],
+    ['作者把城修得真气派，城外这片平原也开阔。', '累了就回城歇脚，铺子里啥都有。'],
+  ]
+  // 三门外郊区漫步范围（城墙外、六区 rect 外——留出的平原带）
+  const OUTSKIRT_PATCHES = [
+    [110, 80, 146, 93],   // 北门外（城墙 z96 ↔ 矿山 z78）
+    [162, 110, 175, 146], // 东门外（城墙 x160 ↔ 鬼城 x178）
+    [110, 163, 146, 176], // 南门外（城墙 z160 ↔ 森林 z178）
+    [88, 118, 94, 140],   // 西门外（城墙 x96 ↔ 竹林前小空地）
+  ]
+  const outskirtNpcs = []
+  OUTSKIRT_PATCHES.forEach((patch, pi) => {
+    const cnt = pi === 3 ? 1 : 2   // 西门窄，只放 1 个
+    for (let k = 0; k < cnt; k++) {
+      const px = patch[0] + Math.random() * (patch[2] - patch[0])
+      const pz = patch[1] + Math.random() * (patch[3] - patch[1])
+      const gy = ctx.world.surfaceAt(Math.floor(px), Math.floor(pz)) + 1
+      const idx = outskirtNpcs.length
+      outskirtNpcs.push(new Villager(mainGroup, [px, gy, pz],
+        { label: `🧑‍🌾 ${OUTSKIRT_NAMES[idx % OUTSKIRT_NAMES.length]}`, patch }))
+    }
+  })
+
   // 宝箱（五个神秘齿轮走箱子；齿轮箱用稳定 id，坐标变了存档也不作废）
   const chests = new ChestRegistry()
   chests.register(STRUCT.oreRoom.chest, { gear: 'ore' }, { id: 'gear:ore' })
@@ -892,6 +921,12 @@ function startGame(robotConfig, save) {
             return
           }
         }
+        for (const r of outskirtNpcs) {
+          if (r.distanceTo(player.ent.pos) < 3) {
+            dialog.show(OUTSKIRT_LINES[Math.floor(Math.random() * OUTSKIRT_LINES.length)])
+            return
+          }
+        }
         for (const folk of folkNpcs) {
           if (folk.distanceTo(player.ent.pos) < 3) {
             const lines = [
@@ -1099,6 +1134,7 @@ function startGame(robotConfig, save) {
       if (dims.active === 'main') {
         for (const v of vendorNpcs) v.update(dt, ctx.world)
         for (const r of residentNpcs) r.update(dt, ctx.world)
+        for (const r of outskirtNpcs) r.update(dt, ctx.world)
       }
       portals.update(dt)
       towerCtrl.update()
@@ -1156,6 +1192,7 @@ function startGame(robotConfig, save) {
         else if (hutNpc.distanceTo(player.ent.pos) < 4) prompt = '按 E 逛作者小店'
         else if (vendorNpcs.some(v => v.distanceTo(player.ent.pos) < 3.5)) prompt = '按 E 逛铺子'
         else if (residentNpcs.some(r => r.distanceTo(player.ent.pos) < 3)) prompt = '按 E 和居民聊聊'
+        else if (outskirtNpcs.some(r => r.distanceTo(player.ent.pos) < 3)) prompt = '按 E 和郊区居民聊聊'
         else if (folkNpcs.some(f => f.distanceTo(player.ent.pos) < 3)) prompt = '按 E 和地下族人聊聊'
         else if (boats.nearest(player.ent.pos)) prompt = '按 E 上船'
         else {
