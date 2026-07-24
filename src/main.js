@@ -272,16 +272,17 @@ function startGame(robotConfig, save) {
     ['听说城东鬼城闹鬼，我可不敢靠近。', '在这郊区放放羊、晒晒太阳最舒坦。'],
     ['作者把城修得真气派，城外这片平原也开阔。', '累了就回城歇脚，铺子里啥都有。'],
   ]
-  // 三门外郊区漫步范围（城墙外、六区 rect 外——留出的平原带）
+  // 四门外郊区漫步范围（城墙外、六区内侧——环城平原带，IC 派生）
+  const _ic = { x: CFG.ISLAND_CX, z: CFG.ISLAND_CZ }
   const OUTSKIRT_PATCHES = [
-    [110, 80, 146, 93],   // 北门外（城墙 z96 ↔ 矿山 z78）
-    [162, 110, 175, 146], // 东门外（城墙 x160 ↔ 鬼城 x178）
-    [110, 163, 146, 176], // 南门外（城墙 z160 ↔ 森林 z178）
-    [88, 118, 94, 140],   // 西门外（城墙 x96 ↔ 竹林前小空地）
+    [_ic.x - 18, _ic.z - 80, _ic.x + 18, _ic.z - 54],  // 北门外（城墙 ↔ 矿山）
+    [_ic.x + 54, _ic.z - 18, _ic.x + 80, _ic.z + 18],  // 东门外（城墙 ↔ 鬼城）
+    [_ic.x - 18, _ic.z + 54, _ic.x + 18, _ic.z + 80],  // 南门外（城墙 ↔ 森林）
+    [_ic.x - 80, _ic.z - 18, _ic.x - 54, _ic.z + 18],  // 西门外（城墙 ↔ 竹林）
   ]
   const outskirtNpcs = []
   OUTSKIRT_PATCHES.forEach((patch, pi) => {
-    const cnt = pi === 3 ? 1 : 2   // 西门窄，只放 1 个
+    const cnt = 2
     for (let k = 0; k < cnt; k++) {
       const px = patch[0] + Math.random() * (patch[2] - patch[0])
       const pz = patch[1] + Math.random() * (patch[3] - patch[1])
@@ -634,7 +635,7 @@ function startGame(robotConfig, save) {
   monsters.poolsEnabled = true
   monsters.spawnPools = [
     // v4：plains 点移到六区之间的野地（城墙外，不落任何区）
-    { tag: 'plains', points: [[86, 100], [180, 90], [90, 166], [176, 172]], types: ['spider', 'brute'], max: CFG.PLAINS_MAX, interval: CFG.PLAINS_SPAWN_INTERVAL, timer: 5, floor: 1, intervalMult: () => dayNight.isNight() ? 0.4 : 1 },
+    { tag: 'plains', points: [[CFG.ISLAND_CX - 70, CFG.ISLAND_CZ - 70], [CFG.ISLAND_CX + 72, CFG.ISLAND_CZ - 64], [CFG.ISLAND_CX - 64, CFG.ISLAND_CZ + 72], [CFG.ISLAND_CX + 70, CFG.ISLAND_CZ + 70]], types: ['spider', 'brute'], max: CFG.PLAINS_MAX, interval: CFG.PLAINS_SPAWN_INTERVAL, timer: 5, floor: 1, intervalMult: () => dayNight.isNight() ? 0.4 : 1 },
     // v4 竹林：野生被动大熊猫
     { tag: 'bamboo', points: [[POS.BAMBOO_C.x - 12, POS.BAMBOO_C.z], [POS.BAMBOO_C.x + 10, POS.BAMBOO_C.z - 8], [POS.BAMBOO_C.x, POS.BAMBOO_C.z + 12], [POS.BAMBOO_C.x + 8, POS.BAMBOO_C.z + 6]], types: ['panda'], max: 5, interval: 14, timer: 4, floor: 1 },
     // v4 矿山：夜行怪
@@ -643,9 +644,9 @@ function startGame(robotConfig, save) {
     { tag: 'ghost', points: [[POS.GHOST_C.x - 10, POS.GHOST_C.z - 10], [POS.GHOST_C.x + 12, POS.GHOST_C.z + 8], [POS.GHOST_C.x, POS.GHOST_C.z + 14], [POS.GHOST_C.x + 8, POS.GHOST_C.z - 12]], types: ['tank', 'apc', 'demon'], max: 5, interval: 18, timer: 10, floor: 12, opts: { tank: { hp: 400, atk: 24, gears: 6 }, apc: { hp: 180, atk: 12, gears: 4 } } },
     // v4 森林：高密刷怪
     { tag: 'forest', points: [[POS.FOREST_C.x - 16, POS.FOREST_C.z], [POS.FOREST_C.x + 16, POS.FOREST_C.z + 8], [POS.FOREST_C.x - 8, POS.FOREST_C.z + 16], [POS.FOREST_C.x + 10, POS.FOREST_C.z - 8]], types: ['spider', 'brute', 'archer'], max: 6, interval: 12, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
-    { tag: 'ocean', points: [[240, 98, 300], [200, 97, 360], [340, 96, 340], [220, 98, 250], [420, 97, 320]], types: ['shark', 'octopus', 'fish', 'crab'], max: 5, interval: 15, timer: 8, floor: 3 },
-    { tag: 'sky', points: [[128, 135, 20], [300, 135, 240], [396, 130, 180], [128, 132, 300]], types: ['bird', 'angel'], max: 3, interval: 25, timer: 12, floor: 3 },
-    { tag: 'tame', points: [[366, 180], [420, 215], [396, 230], [430, 185], [370, 220]], types: ['brute', 'spider', 'crab', 'archer'], max: 4, interval: 18, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
+    { tag: 'ocean', points: [[CFG.ISLAND_CX - 300, 98, CFG.ISLAND_CZ], [CFG.ISLAND_CX, 97, CFG.ISLAND_CZ + 320], [CFG.ISLAND_CX + 300, 96, CFG.ISLAND_CZ + 200], [CFG.ISLAND_CX + 160, 98, CFG.ISLAND_CZ + 340]], types: ['shark', 'octopus', 'fish', 'crab'], max: 5, interval: 15, timer: 8, floor: 3 },
+    { tag: 'sky', points: [[CFG.ISLAND_CX, 150, CFG.ISLAND_CZ - 200], [POS.TAME_LAND.x, 135, POS.TAME_LAND.z], [POS.SEA_PALACE.x, 130, POS.SEA_PALACE.z - 60], [CFG.ISLAND_CX, 150, CFG.ISLAND_CZ + 240]], types: ['bird', 'angel'], max: 3, interval: 25, timer: 12, floor: 3 },
+    { tag: 'tame', points: [[POS.TAME_LAND.x - 30, POS.TAME_LAND.z], [POS.TAME_LAND.x + 40, POS.TAME_LAND.z + 20], [POS.TAME_LAND.x, POS.TAME_LAND.z + 40], [POS.TAME_LAND.x + 30, POS.TAME_LAND.z - 30]], types: ['brute', 'spider', 'crab', 'archer'], max: 4, interval: 18, timer: 6, floor: 5, intervalMult: () => dayNight.isNight() ? 0.5 : 1 },
   ]
   // 池子只在主世界生效
   const origPoolsUpdate = monsters.update.bind(monsters)
@@ -983,7 +984,7 @@ function startGame(robotConfig, save) {
           ['深海上空', [POS.KUNPENG_AIR.x, 145, POS.KUNPENG_AIR.z - 15]],
           ['海底宫殿', [POS.SEA_PALACE.x + 0.5, 30, POS.SEA_PALACE.z - 18.5]],
           ['禁地', [POS.FORBIDDEN.x + 0.5, 108, POS.FORBIDDEN.z - 14.5]],
-          ['收服大陆', [366.5, gy(366, 180), 180.5]],
+          ['收服大陆', [POS.TAME_LAND.x + 0.5, gy(POS.TAME_LAND.x, POS.TAME_LAND.z), POS.TAME_LAND.z + 0.5]],
         ]
         window.__tpIdx = ((window.__tpIdx ?? -1) + 1) % spots.length
         const [name, p] = spots[window.__tpIdx]
