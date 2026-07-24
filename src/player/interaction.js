@@ -21,7 +21,9 @@ export function raycastVoxel(world, origin, dir, maxDist) {
   let t = 0
   for (let i = 0; i < 256; i++) {
     if (t > maxDist) return null
-    if (world.get(x, y, z) !== B.AIR && t > 0) {
+    // 穿透流体（水/流动水/岩浆）：否则水下瞄不到箱子和方块，第三人称相机也会被水挤到贴脸
+    const id = world.get(x, y, z)
+    if (id !== B.AIR && !BLOCKS[id].fluid && t > 0) {
       return { x, y, z, face, dist: t }
     }
     if (tMaxX < tMaxY && tMaxX < tMaxZ) {
@@ -154,7 +156,8 @@ export class Interaction {
     if (!slot) return
     const bx = hit.x + hit.face[0], by = hit.y + hit.face[1], bz = hit.z + hit.face[2]
     if (!world.inBounds(bx, by, bz)) return
-    if (world.get(bx, by, bz) !== B.AIR) return
+    const tgt = world.get(bx, by, bz)
+    if (tgt !== B.AIR && !BLOCKS[tgt].fluid) return   // 允许把方块放进水里（水下建造）
     if (blockIntersectsEntity(bx, by, bz, player.ent)) return
     for (const m of this.ctx.monsters.list) if (!m.dead && blockIntersectsEntity(bx, by, bz, m.ent)) return
     world.set(bx, by, bz, slot.id)
