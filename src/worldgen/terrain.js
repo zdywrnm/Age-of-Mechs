@@ -2,13 +2,14 @@
 import { CFG, POS } from '../config.js'
 import { B } from '../blocks.js'
 import { mulberry32, makeFbm2D } from '../noise.js'
-import { zoneAt } from '../game/zones.js'
+import { zoneAt, regionWeight } from '../game/zones.js'
 
 const { SEED, SURFACE, SEA_LEVEL } = CFG
 
 export function generateTerrain(world) {
   const fbm = makeFbm2D(SEED, 3)
   const fbm2 = makeFbm2D(SEED + 555, 3)
+  const fbmCoast = makeFbm2D(SEED + 313, 2)   // 海岸线扭曲（海角/海湾）
   const SX = world.sx, SZ = world.sz
 
   const smooth = t => t * t * (3 - 2 * t)
@@ -19,8 +20,10 @@ export function generateTerrain(world) {
       let landH = -1
       let topKind = 'grass'
 
-      // 初始城镇岛（与第一章完全一致的公式，保证密室坐标不变）
-      const dTown = Math.hypot(x - CFG.ISLAND_CX, z - CFG.ISLAND_CZ)
+      // 初始城镇岛（v5：不规则有机海岸线——半径叠加 fbm 扭曲做出海角/海湾）
+      const dRaw = Math.hypot(x - CFG.ISLAND_CX, z - CFG.ISLAND_CZ)
+      const coast = (fbmCoast(x * 0.012, z * 0.012) - 0.5) * 46   // ±23 格岸线摆动
+      const dTown = dRaw - coast
       if (dTown <= CFG.ISLAND_R_EDGE) {
         const noiseH = SURFACE + (fbm(x * 0.03, z * 0.03) - 0.5) * 6
         let h
@@ -65,13 +68,17 @@ export function generateTerrain(world) {
         }
       }
 
-      // —— v4：巨石阵高地（西北，+6 缓坡台地）+ 北部矿石群山（五峰锥体）——
+      // —— v5：各区高度软混合（regionWeight smoothstep 权重，区界平滑归零无台阶）——
       if (landH > 0) {
-        const dHg = Math.hypot(x - POS.HENGE_C.x, z - POS.HENGE_C.z)
-        if (dHg < 20) {
-          const t = dHg < 12 ? 1 : 1 - smooth((dHg - 12) / 8)
-          landH = Math.round(landH + 6 * t)
-        }
+        const mw = regionWeight(x, z, 'mountains')
+        let dH = 0
+        dH += regionWeight(x, z, 'henge') * 10                                   // 巨石阵台地
+        dH += mw * (16 + fbm2(x * 0.04, z * 0.04) * 28)                          // 矿石群山：整体山峦 16~44
+        dH -= regionWeight(x, z, 'ghost') * 3                                    // 鬼城下陷裂地
+        dH += regionWeight(x, z, 'forest') * (fbm2(x * 0.05, z * 0.05) - 0.5) * 14 // 森林起伏丘陵 ±7
+        dH += regionWeight(x, z, 'bamboo') * (fbm2(x * 0.06, z * 0.06) - 0.5) * 6  // 竹林缓丘 ±3
+        landH = Math.round(landH + dH)
+        // 五锥峰局部拔高（在山峦之上）
         for (const [px, pz, ph, pr] of POS.MOUNT_PEAKS) {
           const dP = Math.hypot(x - px, z - pz)
           if (dP < pr) {
@@ -80,7 +87,7 @@ export function generateTerrain(world) {
             if (h2 > landH) landH = h2
           }
         }
-        if (landH >= 128) topKind = 'stone'   // 高峰石顶
+        if (landH >= 132 && mw > 0.35) topKind = 'stone'   // 高峰石顶
       }
       // —— v4：西侧海峡（把刷怪塔小岛和主岛隔开）——
       {
