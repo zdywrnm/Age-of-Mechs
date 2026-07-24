@@ -6,24 +6,17 @@ import { CFG } from '../config.js'
 export const SLOT_COUNT = 4
 const slotKey = n => `aom_slot${n}`
 
-const ISLAND_REV = 3   // v4.1 初始岛修订号（扩岛 + 北/东/南三区外推 + 平原郊区）
+const ISLAND_REV = 4   // v5 世界大重建：岛心 (128,128)→(320,320)、世界 512³→1024²、有机区域——坐标系整体改变
 
-// 岛屿重建区判定：主岛柱体(含海滩)+ 刷怪塔小岛盒
-// v4.1 扩岛：半径 118→140（覆盖新 ISLAND_R_EDGE 132 + 海滩缓冲）
-const inRebuild = (x, z) =>
-  Math.hypot(x - CFG.ISLAND_CX, z - CFG.ISLAND_CZ) <= 140 ||
-  (x <= 40 && z >= 108 && z <= 148)
-
-// 岛屿修订升级：清掉落在（新）重建区内的旧方块编辑/位置/船，并盖上当前 rev
-// 每次岛布局变动（六区移位/扩岛）只需 bump ISLAND_REV，老档载入时自动校正
+// 岛屿修订升级（v5）：主世界坐标系整体重构，旧主世界方块编辑/船/玩家位置一律作废
+// 旧编辑坐标落在新世界会变成远海孤块/穿模，故整表清空回新出生点重生
+// 保留：等级/齿轮/八齿轮/装备/宠物/塔进度/任务/宝箱/flags/地狱(edits.hell)/终极之地(edits.void)
+// 每次岛布局变动（移岛/换坐标系）bump ISLAND_REV，老档载入时自动校正
 function reconcileIsland(d) {
-  if (d.edits?.main) d.edits.main = d.edits.main.filter(([x, , z]) => !inRebuild(x, z))   // 全 y 过滤（含地下城）
-  if (d.player?.pos && inRebuild(d.player.pos[0], d.player.pos[2])) d.player.pos = null    // 落在重建区→回出生点
-  d.boats = (d.boats || []).filter(b => {
-    const x = b.x ?? (Array.isArray(b) ? b[0] : 0)
-    const z = b.z ?? (Array.isArray(b) ? b[2] : 0)
-    return !inRebuild(x, z)
-  })
+  d.edits = d.edits || { main: [], hell: [], void: [] }
+  d.edits.main = []                       // 坐标系变了，旧主世界方块编辑全部作废
+  d.boats = []                            // 旧船坐标失效
+  if (d.player) d.player.pos = null       // 回新出生点
   d.islandRev = ISLAND_REV
   return d
 }
@@ -130,8 +123,8 @@ export function loadGame() {
     let data = JSON.parse(raw)
     if (data.version === 3) { data = migrateV3toV4(data); data.migratedFromV1 = true }   // 旧档提示
     if (data.version !== 4) return null
-    // 岛布局修订升级（老 v4 档 islandRev<3 → 校正落在新重建区的旧编辑，防穿模）
-    if ((data.islandRev || 0) < ISLAND_REV) { reconcileIsland(data); data.islandRev = ISLAND_REV }
+    // 岛布局修订升级（老 v4/v4.1 档 islandRev<4 → v5 坐标系整体重构，清主世界编辑/船/位置，保留进度）
+    if ((data.islandRev || 0) < ISLAND_REV) reconcileIsland(data)
     return data
   } catch (e) {
     console.warn('读档失败', e)
