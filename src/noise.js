@@ -35,6 +35,16 @@ export function makeNoise2D(seed) {
   }
 }
 
+// 域扭曲（domain warp）：返回把坐标 (x,z) 用两个 fbm 场偏移 ±amp 后的新坐标
+// —— 用来把规则的圆/矩形边界扭成蜿蜒有机的曲线（区域场、海岸线共用）
+export function makeWarp2D(seed, amp = 22, freq = 0.02) {
+  const wx = makeFbm2D(seed + 7000, 2), wz = makeFbm2D(seed + 9000, 2)
+  return (x, z) => [
+    x + (wx(x * freq, z * freq) - 0.5) * 2 * amp,
+    z + (wz(x * freq, z * freq) - 0.5) * 2 * amp,
+  ]
+}
+
 // 多层叠加（fBm），返回约 [0,1]
 export function makeFbm2D(seed, octaves = 3) {
   const layers = []

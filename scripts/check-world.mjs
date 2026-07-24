@@ -6,7 +6,7 @@ import { CFG, POS, DIMS } from '../src/config.js'
 import { B, isSolid } from '../src/blocks.js'
 import { generateTerrain } from '../src/worldgen/terrain.js'
 import { buildStructures, STRUCT } from '../src/worldgen/structures.js'
-import { zoneAt, ZONES } from '../src/game/zones.js'
+import { zoneAt, SITES } from '../src/game/zones.js'
 
 let pass = 0, fail = 0
 const errors = []
@@ -192,22 +192,31 @@ check('刷怪塔在小岛上', STRUCT.teleporterPad[0] === POS.SPAWNER_C.x && ST
   check('森林神殿二层楼板', world.get(t.x + 3, ts + 7, t.z) === B.PLANK)
 }
 
-// —— 区域系统 ——
-check('塔心在城市区', zoneAt(POS.TOWER_C.x, POS.TOWER_C.z)?.id === 'city')
-check('竹林中心判定', zoneAt(POS.BAMBOO_C.x, POS.BAMBOO_C.z)?.id === 'bamboo')
-check('鬼城中心判定', zoneAt(POS.GHOST_C.x, POS.GHOST_C.z)?.id === 'ghost')
-check('森林中心判定', zoneAt(POS.FOREST_C.x, POS.FOREST_C.z)?.id === 'forest')
-check('远海不在任何区域', zoneAt(400, 400) === null)
-// 城市区与其他区域互斥（city 优先级最高，物理上不重叠）
-{
-  let overlap = 0
-  for (const zn of ZONES) {
-    if (zn.id === 'city' || !zn.rect) continue
-    const r = zn.rect, c = POS.CITY
-    if (r.x0 <= c.x1 && r.x1 >= c.x0 && r.z0 <= c.z1 && r.z1 >= c.z0) overlap++
-  }
-  check('城市矩形不与其他矩形区重叠', overlap === 0, `overlap=${overlap}`)
+// —— 区域系统（v5 有机 Voronoi）——
+// (1) 每区中心稳定命中自己（硬核心保证；check 依赖）
+check('城心在城市区', zoneAt(POS.TOWER_C.x, POS.TOWER_C.z)?.id === 'city')
+for (const s of SITES) {
+  const got = zoneAt(s.cx, s.cz)?.id
+  check(`${s.id} 中心命中自己`, got === s.id, `(${s.cx},${s.cz})→${got}`)
 }
+// (2) 城墙一圈采样：只应是 city 或 null（区域不侵入城墙）
+{
+  const c = POS.CITY, mid = { x: (c.x0 + c.x1) >> 1, z: (c.z0 + c.z1) >> 1 }
+  let bad = null
+  for (let a = 0; a < 360 && !bad; a += 15) {
+    const x = Math.round(mid.x + Math.cos(a * Math.PI / 180) * 30)
+    const z = Math.round(mid.z + Math.sin(a * Math.PI / 180) * 30)
+    const id = zoneAt(x, z)?.id
+    if (id && id !== 'city') bad = `(${x},${z})→${id}`
+  }
+  check('区域不侵入城墙', !bad, bad || '')
+}
+// (3) 城市与各区之间存在 null 平原过渡带（不是方块拼接）
+for (const s of SITES) {
+  const mx = Math.round((POS.TOWER_C.x + s.cx) / 2), mz = Math.round((POS.TOWER_C.z + s.cz) / 2)
+  check(`城→${s.id} 之间有平原带`, zoneAt(mx, mz) === null, `中点(${mx},${mz})→${zoneAt(mx, mz)?.id}`)
+}
+check('真远海不在任何区域', zoneAt(900, 900) === null)
 
 // —— 汇总 ——
 console.log(`\n通过 ${pass} 项，失败 ${fail} 项`)

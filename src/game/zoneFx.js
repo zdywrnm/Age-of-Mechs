@@ -2,7 +2,7 @@
 // 全部只在主世界生效；雾必须在 dayNight.update 之后覆盖
 import * as THREE from 'three'
 import { CFG, POS } from '../config.js'
-import { zoneAt } from './zones.js'
+import { zoneAt, regionDist } from './zones.js'
 
 const GHOST_FOG = { near: 42, far: 120, color: new THREE.Color('#3a2f2a') }
 
@@ -29,9 +29,9 @@ export class ZoneFx {
       if (zone) this.hud.banner(`${zone.icon} ${zone.name}`, zoneSubtitle(zid), 1800)
     }
 
-    // —— 鬼城局部雾（按到矩形距离 lerp）——
+    // —— 鬼城局部雾（按到鬼城有机边界距离 lerp）——
     const fog = this.scene.fog
-    const dGhost = rectDist(POS.GHOST_RECT, p.x, p.z)
+    const dGhost = regionDist(p.x, p.z, 'ghost')
     const t = Math.max(0, Math.min(1, 1 - dGhost / 30))
     if (t > 0) {
       this._baseFogColor.copy(fog.color)
